@@ -1,0 +1,30 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Love Game",
+            "type": "shell",
+            "command": "../love.app/Contents/MacOS/love .",
+            "osx": {
+                "command": "../love.app/Contents/MacOS/love",
+                "args": ["."]
+            },
+            "windows": {
+                "command": "cmd",
+                "args": [
+                    "/c",
+                    "taskkill /IM love.exe /F 2>nul & \"C:\\Program Files\\LOVE\\love.exe\" C:\\Users\\aliso\\IGNIS\\love2d\\"
+                ]
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}

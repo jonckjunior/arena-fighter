@@ -48,7 +48,7 @@ function World.spawnPlayer(w, x, y)
     local id        = World.newEntity(w)
     w.position[id]  = { x = x, y = y }
     w.velocity[id]  = { dx = 0, dy = 0 }
-    w.speed[id]     = { value = 120 }
+    w.speed[id]     = { value = 60 }
     w.input[id]     = { up = false, dn = false, lt = false, rt = false }
     w.animation[id] = {
         frames    = {
@@ -58,7 +58,7 @@ function World.spawnPlayer(w, x, y)
         },
         current   = 1,
         timer     = 0,
-        duration  = 0.05,
+        duration  = 0.2,
         isPlaying = false,
     }
     w.facing[id]    = { dir = 1 } -- 1 = right, -1 = left

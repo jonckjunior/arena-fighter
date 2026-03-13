@@ -20,44 +20,41 @@ end
 -- Translate input → velocity
 ---@param w World
 ---@param dt number
+-- systems.lua
+
 function Systems.movement(w, dt)
     for id in pairs(w.input) do
         if not w.velocity[id] or not w.speed[id] then goto continue end
 
-        local inp = w.input[id]
+        local inp      = w.input[id]
         local targetDx = (inp.rt and 1 or 0) - (inp.lt and 1 or 0)
         local targetDy = (inp.dn and 1 or 0) - (inp.up and 1 or 0)
 
+        -- Normalize diagonal movement
         if targetDx ~= 0 and targetDy ~= 0 then
-            targetDx = targetDx * 0.8
-            targetDy = targetDy * 0.8
+            targetDx = targetDx * 1
+            targetDy = targetDy * 1
         end
 
-        local accel       = 25
-        local spd         = w.speed[id].value
+        w.velocity[id].dx = targetDx * w.speed[id].value
+        w.velocity[id].dy = targetDy * w.speed[id].value
 
-        w.velocity[id].dx = lerp(w.velocity[id].dx, targetDx * spd, accel * dt)
-        w.velocity[id].dy = lerp(w.velocity[id].dy, targetDy * spd, accel * dt)
-
-        -- facing still driven by input intent, not velocity direction
-        -- so it flips immediately on keypress rather than waiting for velocity to cross 0
-        if inp.rt then
+        -- Update facing
+        if targetDx > 0 then
             w.facing[id].dir = 1
-        elseif inp.lt then
+        elseif targetDx < 0 then
             w.facing[id].dir = -1
         end
 
+        -- Apply movement
         if w.position[id] then
             w.position[id].x = w.position[id].x + w.velocity[id].dx * dt
             w.position[id].y = w.position[id].y + w.velocity[id].dy * dt
         end
 
         if w.animation[id] then
-            -- use input intent for animation, not velocity magnitude
-            -- so animation starts immediately on keypress
             w.animation[id].isPlaying = (targetDx ~= 0 or targetDy ~= 0)
         end
-
         ::continue::
     end
 end
@@ -83,33 +80,47 @@ end
 -- Draw everything with position + animation
 ---@param w World
 function Systems.draw(w)
+    -- Collect entities with animation and position, sorted by y-coordinate
+    local drawables = {}
     for id in pairs(w.animation) do
         if w.position[id] then
-            local pos  = w.position[id]
-            local anim = w.animation[id]
-            local dir  = w.facing[id] and w.facing[id].dir or 1
-            local img  = anim.frames[anim.current]
-            local iw   = img:getWidth()
-            local ih   = img:getHeight()
-
-            -- when flipping, offset x by sprite width so it doesn't slide left
-            local ox   = dir == -1 and iw or 0
-            love.graphics.draw(
-                img,
-                math.floor(pos.x - iw / 2) + ox, -- offset left by half width
-                math.floor(pos.y - ih / 2),      -- offset up by half height
-                0, dir, 1
-            )
+            drawables[#drawables + 1] = id
         end
     end
 
-    for id in pairs(w.collider) do
-        if w.position[id] then
-            local pos = w.position[id]
-            local r   = w.collider[id].radius
-            love.graphics.setColor(1, 0, 0, 0.5)
-            love.graphics.circle("fill", pos.x, pos.y, r)
-            love.graphics.setColor(1, 1, 1)
+    -- Sort by y-coordinate (ascending) for correct depth ordering
+    table.sort(drawables, function(a, b)
+        return w.position[a].y < w.position[b].y
+    end)
+
+    -- Draw in sorted order
+    for _, id in ipairs(drawables) do
+        local pos  = w.position[id]
+        local anim = w.animation[id]
+        local dir  = w.facing[id] and w.facing[id].dir or 1
+        local img  = anim.frames[anim.current]
+        local iw   = img:getWidth()
+        local ih   = img:getHeight()
+
+        -- when flipping, offset x by sprite width so it doesn't slide left
+        local ox   = dir == -1 and iw or 0
+        love.graphics.draw(
+            img,
+            math.floor(pos.x - iw / 2 + 0.5) + ox, -- offset left by half width
+            math.floor(pos.y - ih / 2 + 0.5),      -- offset up by half height
+            0, dir, 1
+        )
+    end
+
+    if DEBUG then
+        for id in pairs(w.collider) do
+            if w.position[id] then
+                local pos = w.position[id]
+                local r   = w.collider[id].radius
+                love.graphics.setColor(1, 0, 0, 0.5)
+                love.graphics.circle("fill", pos.x, pos.y, r)
+                love.graphics.setColor(1, 1, 1)
+            end
         end
     end
 end
