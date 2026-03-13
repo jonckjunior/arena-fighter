@@ -31,7 +31,7 @@ end
 
 ---Creates a new entity
 ---@param w World
----@return number
+---@return integer
 function World.newEntity(w)
     local id = w.nextId
     w.nextId = w.nextId + 1
@@ -41,9 +41,9 @@ end
 
 ---Creates a new player and returns its id
 ---@param w World
----@param x number
----@param y number
----@return number
+---@param x integer
+---@param y integer
+---@return integer
 function World.spawnPlayer(w, x, y)
     local id        = World.newEntity(w)
     w.position[id]  = { x = x, y = y }
@@ -66,6 +66,11 @@ function World.spawnPlayer(w, x, y)
     return id
 end
 
+---Creates a barrel.
+---@param w World
+---@param x integer
+---@param y integer
+---@return integer
 function World.spawnBarrel(w, x, y)
     local id        = World.newEntity(w)
     w.position[id]  = { x = x, y = y }

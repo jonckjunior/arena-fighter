@@ -63,6 +63,8 @@ function Systems.movement(w, dt)
 end
 
 -- Advance sprite animation
+---@param w World
+---@param dt number
 function Systems.animation(w, dt)
     for id, anim in pairs(w.animation) do
         if anim.isPlaying then
@@ -79,6 +81,7 @@ function Systems.animation(w, dt)
 end
 
 -- Draw everything with position + animation
+---@param w World
 function Systems.draw(w)
     for id in pairs(w.animation) do
         if w.position[id] then
@@ -111,6 +114,8 @@ function Systems.draw(w)
     end
 end
 
+---Resolves collisions
+---@param w World
 function Systems.collisionResolution(w)
     -- Collect solids once per frame
     local solids = {}
