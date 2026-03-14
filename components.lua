@@ -1,5 +1,9 @@
 local C = {}
 
+function C.playerIndex(index)
+    return { index = index }
+end
+
 function C.position(x, y)
     return { x = x, y = y }
 end

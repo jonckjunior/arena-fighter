@@ -22,20 +22,21 @@ Spawners.GunDefs = {
     },
 }
 
-function Spawners.player(w, x, y)
-    local id        = World.newEntity(w)
-    w.position[id]  = C.position(x, y)
-    w.velocity[id]  = C.velocity()
-    w.speed[id]     = C.speed(60)
-    w.input[id]     = C.input()
-    w.animation[id] = C.animation({
+function Spawners.player(w, x, y, index)
+    local id          = World.newEntity(w)
+    w.position[id]    = C.position(x, y)
+    w.velocity[id]    = C.velocity()
+    w.speed[id]       = C.speed(60)
+    w.input[id]       = C.input()
+    w.animation[id]   = C.animation({
         love.graphics.newImage("Assets/Sprites/Players/Tiles/tile_0000.png"),
         love.graphics.newImage("Assets/Sprites/Players/Tiles/tile_0001.png"),
         love.graphics.newImage("Assets/Sprites/Players/Tiles/tile_0002.png"),
     }, 0.15)
-    w.facing[id]    = C.facing(1)
-    w.collider[id]  = C.collider(9)
-    w.drawLayer[id] = C.drawLayer(1)
+    w.facing[id]      = C.facing(1)
+    w.collider[id]    = C.collider(9)
+    w.drawLayer[id]   = C.drawLayer(1)
+    w.playerIndex[id] = C.playerIndex(index)
     return id
 end
 

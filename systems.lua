@@ -43,22 +43,54 @@ function Systems.lifetime(w)
     end
 end
 
----Read keyboard into input components
----@param w World
-function Systems.gatherInput(w)
-    for id in pairs(w.input) do
-        local inp = w.input[id]
-        inp.up    = love.keyboard.isDown("w")
-        inp.dn    = love.keyboard.isDown("s")
-        inp.lt    = love.keyboard.isDown("a")
-        inp.rt    = love.keyboard.isDown("d")
-        inp.fire  = love.mouse.isDown(1)
+---Returns a raw input table for one local player
+---@param playerIndex integer
+function Systems.gatherLocalInput(playerIndex)
+    local inp = {}
 
+    if playerIndex == 1 then
+        inp.up       = love.keyboard.isDown("w")
+        inp.dn       = love.keyboard.isDown("s")
+        inp.lt       = love.keyboard.isDown("a")
+        inp.rt       = love.keyboard.isDown("d")
+        inp.fire     = love.mouse.isDown(1)
+        -- aim angle stays as float for now, quantize later
+        inp.aimAngle = 0
+    elseif playerIndex == 2 then
+        inp.up       = love.keyboard.isDown("i")
+        inp.dn       = love.keyboard.isDown("k")
+        inp.lt       = love.keyboard.isDown("j")
+        inp.rt       = love.keyboard.isDown("l")
+        inp.fire     = love.keyboard.isDown("space")
+        inp.aimAngle = 0
+    end
+
+    return inp
+end
+
+function Systems.fillAimAngles(frameInputs, w)
+    for id, pidx in pairs(w.playerIndex) do
+        local inp = frameInputs[pidx.index]
         local pos = w.position[id]
-        if pos then
-            local mx = love.mouse.getX() / 3
-            local my = love.mouse.getY() / 3
+        if inp and pos then
+            -- for now all players use the mouse, split-screen aim comes later
+            local mx = love.mouse.getX() / scaleFactor
+            local my = love.mouse.getY() / scaleFactor
             inp.aimAngle = math.atan2(my - pos.y, mx - pos.x)
+        end
+    end
+end
+
+function Systems.applyInputs(w, frameInputs)
+    for id, pidx in pairs(w.playerIndex) do
+        local inp = frameInputs[pidx.index]
+        if inp and w.input[id] then
+            w.input[id].up       = inp.up
+            w.input[id].dn       = inp.dn
+            w.input[id].lt       = inp.lt
+            w.input[id].rt       = inp.rt
+            w.input[id].fire     = inp.fire
+            w.input[id].aimAngle = inp.aimAngle
         end
     end
 end

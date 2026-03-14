@@ -19,7 +19,8 @@ function love.load()
     canvas:setFilter("nearest", "nearest")
 
     world = World.new()
-    local pid = Spawners.player(world, 100, 100)
+    local pid = Spawners.player(world, 100, 100, 1)
+    Spawners.player(world, 300, 100, 2)
     Spawners.gun(world, pid, "ak47")
     Spawners.barrel(world, 200, 150)
     Spawners.barrel(world, 216, 150)
@@ -41,7 +42,13 @@ function love.update(dt)
     cursor.pos.y = cursor.pos.y / scaleFactor
 
     while accumulator >= FIXED_DT do
-        Systems.gatherInput(world)
+        local frameInputs = {
+            [1] = Systems.gatherLocalInput(1),
+            [2] = Systems.gatherLocalInput(2), -- add when spawning p2
+        }
+        Systems.fillAimAngles(frameInputs, world)
+        Systems.applyInputs(world, frameInputs)
+
         Systems.gunCooldown(world)
         Systems.firing(world)
         Systems.inputToMovement(world, FIXED_DT)

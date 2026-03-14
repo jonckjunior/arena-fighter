@@ -14,28 +14,30 @@
 ---@field lifetime table<integer, {ttl: number}>
 ---@field equippedBy table<integer, {ownerId: integer}>
 ---@field drawLayer table<integer, {layer: integer}>
+---@field playerIndex table<integer, {index: integer}>
 local World = {}
 
 ---Creates a new world with all its components
 ---@return table
 function World.new()
     return {
-        nextId     = 1,
-        entities   = {},
+        nextId      = 1,
+        entities    = {},
         -- components
-        position   = {}, -- { x, y }
-        velocity   = {}, -- { dx, dy }
-        animation  = {}, -- { frames, current, timer, duration, isPlaying }
-        input      = {}, -- { up, dn, lt, rt, fire, aimAngle}
-        speed      = {}, -- { value }
-        facing     = {}, -- { dir }
-        solid      = {}, -- {}
-        collider   = {}, -- { radius }
-        gun        = {}, -- { cooldown, maxCooldown, damage, bulletSpeed }
-        bullet     = {}, -- { ownerId, damage }
-        lifetime   = {}, -- { ttl }
-        equippedBy = {}, -- { ownerId }
-        drawLayer  = {}, -- { layer }
+        position    = {}, -- { x, y }
+        velocity    = {}, -- { dx, dy }
+        animation   = {}, -- { frames, current, timer, duration, isPlaying }
+        input       = {}, -- { up, dn, lt, rt, fire, aimAngle}
+        speed       = {}, -- { value }
+        facing      = {}, -- { dir }
+        solid       = {}, -- {}
+        collider    = {}, -- { radius }
+        gun         = {}, -- { cooldown, maxCooldown, damage, bulletSpeed }
+        bullet      = {}, -- { ownerId, damage }
+        lifetime    = {}, -- { ttl }
+        equippedBy  = {}, -- { ownerId }
+        drawLayer   = {}, -- { layer }
+        playerIndex = {}, -- { index }
     }
 end
 
