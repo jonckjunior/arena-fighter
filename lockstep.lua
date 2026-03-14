@@ -1,14 +1,15 @@
--- lockstep.lua — phase 2: connection + input sending.
--- Connects to the relay, receives a player index, and can send local input each tick.
--- No receiving remote input, no frame buffering, no gating yet.
+-- lockstep.lua — phase 3: connection + send + receive remote input.
+-- remoteInputs[playerIndex] holds the latest decoded input from each remote player.
+-- No frame buffering or gating yet — we just use whatever arrived most recently.
 
 local enet     = require "enet"
 local Lockstep = {}
 
 ---@class LockstepState
----@field host    any     enet host
----@field server  any     enet peer (the relay)
----@field myIndex integer which player we are (1-based)
+---@field host         any            enet host
+---@field server       any            enet peer (the relay)
+---@field myIndex      integer        which player we are (1-based)
+---@field remoteInputs table<integer, table>  latest input received per remote playerIndex
 
 --- Connects to the relay and waits until we receive our player index.
 --- Blocks in a tight loop — only call this from love.load().
@@ -40,9 +41,10 @@ function Lockstep.connect(relayHost, port)
     end
 
     return {
-        host    = host,
-        server  = server,
-        myIndex = myIndex,
+        host         = host,
+        server       = server,
+        myIndex      = myIndex,
+        remoteInputs = {}, -- [playerIndex] = latest decoded input table
     }
 end
 
@@ -76,6 +78,39 @@ end
 function Lockstep.send(ls, inp)
     ls.server:send(packInput(ls.myIndex, inp))
     ls.host:flush()
+end
+
+-- Inverse of packInput — same 4-byte layout.
+local function unpackInput(data)
+    local playerIndex = string.byte(data, 1)
+    local buttons     = string.byte(data, 2)
+    local hi          = string.byte(data, 3)
+    local lo          = string.byte(data, 4)
+    local angle       = hi * 256 + lo
+    return playerIndex, {
+        up       = buttons % 2 >= 1,
+        dn       = math.floor(buttons / 2) % 2 >= 1,
+        lt       = math.floor(buttons / 4) % 2 >= 1,
+        rt       = math.floor(buttons / 8) % 2 >= 1,
+        fire     = math.floor(buttons / 16) % 2 >= 1,
+        aimAngle = (angle / 65535) * (2 * math.pi) - math.pi,
+    }
+end
+
+--- Drain all pending packets from the relay and store the latest input per player.
+--- Call this once per love.update, before the fixed-tick loop.
+---@param ls LockstepState
+function Lockstep.receive(ls)
+    local event = ls.host:service(0)
+    while event do
+        if event.type == "receive" then
+            local playerIndex, inp = unpackInput(event.data)
+            ls.remoteInputs[playerIndex] = inp
+        elseif event.type == "disconnect" then
+            print("[lockstep] Disconnected from relay")
+        end
+        event = ls.host:service(0)
+    end
 end
 
 return Lockstep

@@ -62,15 +62,37 @@ function love.update(dt)
     cursor.pos.x = cursor.pos.x / scaleFactor
     cursor.pos.y = cursor.pos.y / scaleFactor
 
+    -- Drain all pending packets once per frame, before the tick loop.
+    if USE_NETWORK then
+        Lockstep.receive(ls)
+    end
+
     while accumulator >= FIXED_DT do
+        -- Gather local keyboard state for all players (local mode uses both;
+        -- networked mode only our own matters — remote gets overwritten below).
         local frameInputs = {
             [1] = Systems.gatherLocalInput(1),
             [2] = Systems.gatherLocalInput(2),
         }
+
+        -- Our player's aim angle comes from the local mouse.
+        -- fillAimAngles sets all players, but remote will be overwritten next.
         Systems.fillAimAngles(frameInputs, world)
 
-        -- Send our input to the relay so other clients can receive it next phase.
         if USE_NETWORK then
+            -- Replace the remote player's input with whatever arrived from the relay.
+            -- Falls back to neutral (standing still, not firing) if nothing yet.
+            local remoteIndex = myIndex == 1 and 2 or 1
+            frameInputs[remoteIndex] = ls.remoteInputs[remoteIndex] or {
+                up = false,
+                dn = false,
+                lt = false,
+                rt = false,
+                fire = false,
+                aimAngle = 0,
+            }
+
+            -- Send our input after aim angle is filled in.
             Lockstep.send(ls, frameInputs[myIndex])
         end
 
