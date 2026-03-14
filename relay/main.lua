@@ -1,6 +1,5 @@
 -- Run as a standalone Love2D app: love relay/
--- For now: accepts connections and assigns each client a player index.
--- No game logic, no input broadcasting yet.
+-- Phase 2: assigns player indices, broadcasts input packets, displays a live log.
 
 local enet      = require "enet"
 
@@ -8,6 +7,14 @@ local PORT      = 22122
 local host      = enet.host_create("*:" .. PORT, 16)
 local clients   = {} -- peer → playerIndex
 local nextIndex = 1
+
+local log       = {} -- newest entry at index 1
+local LOG_MAX   = 20
+
+local function addLog(msg)
+    table.insert(log, 1, msg)
+    if #log > LOG_MAX then log[#log] = nil end
+end
 
 print("Relay listening on port " .. PORT)
 
@@ -18,16 +25,23 @@ function love.update()
     while event do
         if event.type == "connect" then
             clients[event.peer] = nextIndex
-            print("Player " .. nextIndex .. " connected: " .. tostring(event.peer))
-
-            -- Tell the client which index they are.
-            -- Packet: [0xFF][playerIndex] — both plain bytes
+            addLog("P" .. nextIndex .. " connected")
             event.peer:send(string.char(0xFF, nextIndex))
-
             nextIndex = nextIndex + 1
+        elseif event.type == "receive" then
+            local from    = clients[event.peer] or "?"
+            local buttons = string.byte(event.data, 2)
+            addLog("P" .. from .. " -> " .. #event.data .. "b  buttons=" .. buttons)
+
+            -- Broadcast to every client except the sender
+            for peer in pairs(clients) do
+                if peer ~= event.peer then
+                    peer:send(event.data)
+                end
+            end
         elseif event.type == "disconnect" then
             local idx = clients[event.peer]
-            print("Player " .. (idx or "?") .. " disconnected")
+            addLog("P" .. (idx or "?") .. " disconnected")
             clients[event.peer] = nil
         end
 
@@ -36,6 +50,8 @@ function love.update()
 end
 
 function love.draw()
-    love.graphics.print("Relay running on port " .. PORT, 10, 10)
-    love.graphics.print("Players ever connected: " .. (nextIndex - 1), 10, 30)
+    love.graphics.print("Relay on port " .. PORT .. "   players: " .. (nextIndex - 1), 10, 10)
+    for i, msg in ipairs(log) do
+        love.graphics.print(msg, 10, 10 + i * 16)
+    end
 end

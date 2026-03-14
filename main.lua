@@ -15,7 +15,8 @@ local USE_NETWORK = true
 local RELAY_HOST  = "localhost" -- change to relay machine's IP for remote play
 local RELAY_PORT  = 22122
 
-local myIndex     = 1 -- overwritten by Lockstep.connect() when USE_NETWORK = true
+local myIndex     = 1   -- overwritten by Lockstep.connect() when USE_NETWORK = true
+local ls          = nil -- LockstepState, set in love.load when USE_NETWORK = true
 
 function love.load()
     love.graphics.setDefaultFilter("nearest", "nearest")
@@ -29,8 +30,8 @@ function love.load()
 
     -- Connect before spawning — myIndex determines which player we control.
     if USE_NETWORK then
-        local ls = Lockstep.connect(RELAY_HOST, RELAY_PORT)
-        myIndex  = ls.myIndex
+        ls      = Lockstep.connect(RELAY_HOST, RELAY_PORT)
+        myIndex = ls.myIndex
     end
 
     world = World.new()
@@ -62,13 +63,17 @@ function love.update(dt)
     cursor.pos.y = cursor.pos.y / scaleFactor
 
     while accumulator >= FIXED_DT do
-        -- For now, both players still read local keyboard regardless of USE_NETWORK.
-        -- Next phase: myIndex's input gets sent to relay; remote input comes back.
         local frameInputs = {
             [1] = Systems.gatherLocalInput(1),
             [2] = Systems.gatherLocalInput(2),
         }
         Systems.fillAimAngles(frameInputs, world)
+
+        -- Send our input to the relay so other clients can receive it next phase.
+        if USE_NETWORK then
+            Lockstep.send(ls, frameInputs[myIndex])
+        end
+
         Systems.applyInputs(world, frameInputs)
         Systems.gunCooldown(world)
         Systems.gunFollow(world)
