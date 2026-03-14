@@ -48,13 +48,12 @@ function love.update(dt)
         }
         Systems.fillAimAngles(frameInputs, world)
         Systems.applyInputs(world, frameInputs)
-
         Systems.gunCooldown(world)
+        Systems.gunFollow(world)
         Systems.firing(world)
         Systems.inputToMovement(world, FIXED_DT)
         Systems.applyVelocity(world, FIXED_DT)
         Systems.bulletTerrainCollision(world)
-        Systems.gunFollow(world)
         Systems.collisionResolution(world)
         Systems.animation(world, FIXED_DT)
         Systems.lifetime(world)
@@ -68,7 +67,7 @@ function love.draw()
     Systems.draw(world)
     love.graphics.draw(cursor.sprite, cursor.pos.x, cursor.pos.y)
     love.graphics.setCanvas()
-    love.graphics.draw(canvas, 0, 0, 0, 3, 3)
+    love.graphics.draw(canvas, 0, 0, 0, scaleFactor, scaleFactor)
 end
 
 function love.keypressed(key)

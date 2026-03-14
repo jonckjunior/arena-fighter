@@ -1,9 +1,10 @@
 local World    = require "world"
 local Spawners = require "spawners"
 
+local rng      = love.math.newRandomGenerator(12345)
 
 ---@class Systems
-local Systems = {}
+local Systems  = {}
 
 function Systems.gunFollow(w)
     for gid in pairs(w.equippedBy) do
@@ -113,7 +114,7 @@ function Systems.firing(w)
             local muzzleY = gunPos.y + math.sin(angle) * (iw / 2)
 
             for i = 1, gun.bulletCount do
-                local spreadAngle = (math.random() - 0.5) * 2 * gun.spread
+                local spreadAngle = (rng:random() - 0.5) * 2 * gun.spread
                 local a           = angle + spreadAngle
                 Spawners.bullet(w, ownerId, muzzleX, muzzleY,
                     math.cos(a) * gun.bulletSpeed,
@@ -243,9 +244,6 @@ function Systems.draw(w)
         local img  = anim.frames[anim.current]
         local iw   = img:getWidth()
         local ih   = img:getHeight()
-
-        -- when flipping, offset x by sprite width so it doesn't slide left
-        local ox   = dir == -1 and iw or 0
         love.graphics.draw(
             img,
             math.floor(pos.x + 0.5),
