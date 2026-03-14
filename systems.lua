@@ -139,6 +139,31 @@ function Systems.applyVelocity(w, dt)
     end
 end
 
+function Systems.bulletTerrainCollision(w)
+    local solids = {}
+    for id in pairs(w.solid) do
+        if w.position[id] and w.collider[id] then
+            solids[#solids + 1] = id
+        end
+    end
+
+    for bid in pairs(w.bullet) do
+        if not w.position[bid] or not w.collider[bid] then goto continue end
+
+        for _, sid in ipairs(solids) do
+            local dx   = w.position[bid].x - w.position[sid].x
+            local dy   = w.position[bid].y - w.position[sid].y
+            local minD = w.collider[bid].radius + w.collider[sid].radius
+
+            if dx * dx + dy * dy < minD * minD then
+                World.destroy(w, bid)
+                break -- bullet is gone, no point checking remaining solids
+            end
+        end
+        ::continue::
+    end
+end
+
 -- Advance sprite animation
 ---@param w World
 ---@param dt number

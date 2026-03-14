@@ -32,7 +32,7 @@ function Spawners.player(w, x, y)
         love.graphics.newImage("Assets/Sprites/Players/Tiles/tile_0000.png"),
         love.graphics.newImage("Assets/Sprites/Players/Tiles/tile_0001.png"),
         love.graphics.newImage("Assets/Sprites/Players/Tiles/tile_0002.png"),
-    }, 0.2)
+    }, 0.15)
     w.facing[id]    = C.facing(1)
     w.collider[id]  = C.collider(9)
     w.drawLayer[id] = C.drawLayer(1)
