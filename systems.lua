@@ -1,8 +1,46 @@
+local World    = require "world"
+local Spawners = require "spawners"
+
+
 ---@class Systems
 local Systems = {}
 
-local function lerp(a, b, t)
-    return a + (b - a) * t
+function Systems.gunFollow(w)
+    for gid in pairs(w.equippedBy) do
+        local ownerId = w.equippedBy[gid].ownerId
+        local pos     = w.position[ownerId]
+        local inp     = w.input[ownerId]
+        if not pos or not inp then goto continue end
+
+        local angle       = inp.aimAngle
+        local offset      = 4
+        w.position[gid].x = pos.x + math.cos(angle) * offset
+        w.position[gid].y = pos.y + math.sin(angle) * offset + 12
+
+        -- store rotation and vertical flip on animation for draw to use
+        if w.animation[gid] then
+            w.animation[gid].angle = angle
+            w.animation[gid].flipY = math.cos(angle) < 0 and -1 or 1
+        end
+        ::continue::
+    end
+end
+
+function Systems.gunCooldown(w)
+    for id, gun in pairs(w.gun) do
+        if gun.cooldown > 0 then
+            gun.cooldown = gun.cooldown - 1
+        end
+    end
+end
+
+function Systems.lifetime(w)
+    for id, lt in pairs(w.lifetime) do
+        lt.ttl = lt.ttl - FIXED_DT
+        if lt.ttl <= 0 then
+            World.destroy(w, id)
+        end
+    end
 end
 
 ---Read keyboard into input components
@@ -10,19 +48,56 @@ end
 function Systems.gatherInput(w)
     for id in pairs(w.input) do
         local inp = w.input[id]
-        inp.up = love.keyboard.isDown("w")
-        inp.dn = love.keyboard.isDown("s")
-        inp.lt = love.keyboard.isDown("a")
-        inp.rt = love.keyboard.isDown("d")
+        inp.up    = love.keyboard.isDown("w")
+        inp.dn    = love.keyboard.isDown("s")
+        inp.lt    = love.keyboard.isDown("a")
+        inp.rt    = love.keyboard.isDown("d")
+        inp.fire  = love.mouse.isDown(1)
+
+        local pos = w.position[id]
+        if pos then
+            local mx = love.mouse.getX() / 3
+            local my = love.mouse.getY() / 3
+            inp.aimAngle = math.atan2(my - pos.y, mx - pos.x)
+        end
+    end
+end
+
+function Systems.firing(w)
+    for gid, gun in pairs(w.gun) do
+        local eq = w.equippedBy[gid]
+        if not eq then goto continue end
+
+        local ownerId = eq.ownerId
+        local inp     = w.input[ownerId]
+        local gunPos  = w.position[gid]
+        local anim    = w.animation[gid]
+        if not inp or not gunPos or not anim then goto continue end
+
+        if inp.fire and gun.cooldown == 0 then
+            local angle   = inp.aimAngle
+            local iw      = anim.frames[anim.current]:getWidth()
+            local muzzleX = gunPos.x + math.cos(angle) * (iw / 2)
+            local muzzleY = gunPos.y + math.sin(angle) * (iw / 2)
+
+            for i = 1, gun.bulletCount do
+                local spreadAngle = (math.random() - 0.5) * 2 * gun.spread
+                local a           = angle + spreadAngle
+                Spawners.bullet(w, ownerId, muzzleX, muzzleY,
+                    math.cos(a) * gun.bulletSpeed,
+                    math.sin(a) * gun.bulletSpeed,
+                    gun.damage)
+            end
+            gun.cooldown = gun.maxCooldown
+        end
+        ::continue::
     end
 end
 
 -- Translate input → velocity
 ---@param w World
 ---@param dt number
--- systems.lua
-
-function Systems.movement(w, dt)
+function Systems.inputToMovement(w, dt)
     for id in pairs(w.input) do
         if not w.velocity[id] or not w.speed[id] then goto continue end
 
@@ -39,12 +114,7 @@ function Systems.movement(w, dt)
         w.velocity[id].dx = targetDx * w.speed[id].value
         w.velocity[id].dy = targetDy * w.speed[id].value
 
-        -- Update facing
-        if targetDx > 0 then
-            w.facing[id].dir = 1
-        elseif targetDx < 0 then
-            w.facing[id].dir = -1
-        end
+        w.facing[id].dir = math.cos(inp.aimAngle) >= 0 and 1 or -1
 
         -- Apply movement
         if w.position[id] then
@@ -55,6 +125,16 @@ function Systems.movement(w, dt)
         if w.animation[id] then
             w.animation[id].isPlaying = (targetDx ~= 0 or targetDy ~= 0)
         end
+        ::continue::
+    end
+end
+
+function Systems.applyVelocity(w, dt)
+    for id in pairs(w.velocity) do
+        if w.input[id] or not w.position[id] then goto continue end
+
+        w.position[id].x = w.position[id].x + w.velocity[id].dx * dt
+        w.position[id].y = w.position[id].y + w.velocity[id].dy * dt
         ::continue::
     end
 end
@@ -90,7 +170,12 @@ function Systems.draw(w)
 
     -- Sort by y-coordinate (ascending) for correct depth ordering
     table.sort(drawables, function(a, b)
-        return w.position[a].y < w.position[b].y
+        local la = w.drawLayer[a] and w.drawLayer[a].layer or 0
+        local lb = w.drawLayer[b] and w.drawLayer[b].layer or 0
+        if la ~= lb then
+            return la < lb                       -- different layers: sort by layer
+        end
+        return w.position[a].y < w.position[b].y -- same layer: sort by y
     end)
 
     -- Draw in sorted order
@@ -106,9 +191,13 @@ function Systems.draw(w)
         local ox   = dir == -1 and iw or 0
         love.graphics.draw(
             img,
-            math.floor(pos.x - iw / 2 + 0.5) + ox, -- offset left by half width
-            math.floor(pos.y - ih / 2 + 0.5),      -- offset up by half height
-            0, dir, 1
+            math.floor(pos.x + 0.5),
+            math.floor(pos.y + 0.5),
+            anim.angle or 0,
+            dir,
+            anim.flipY or 1,
+            iw / 2,
+            ih / 2
         )
     end
 
