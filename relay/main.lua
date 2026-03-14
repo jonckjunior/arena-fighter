@@ -22,7 +22,7 @@ function love.update()
 
             -- Tell the client which index they are.
             -- Packet: [0xFF][playerIndex] — both plain bytes
-            event.peer:send(string.pack("BB", 0xFF, nextIndex))
+            event.peer:send(string.char(0xFF, nextIndex))
 
             nextIndex = nextIndex + 1
         elseif event.type == "disconnect" then
