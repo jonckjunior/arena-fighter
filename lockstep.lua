@@ -45,8 +45,8 @@ function Lockstep.connect(relayHost, port)
         host         = host,
         server       = server,
         myIndex      = myIndex,
-        remoteInputs = {}, -- [playerIndex] = latest input (used by main.lua until step 4)
-        inputBuffer  = {}, -- [frame][playerIndex] = inp (new, used by ready/consume later)
+        remoteInputs = {}, -- [playerIndex] = latest input (main.lua uses this until step 4)
+        inputBuffer  = {}, -- [frame][playerIndex] = inp
     }
 end
 
@@ -85,8 +85,7 @@ end
 ---@param inp table   raw input for our player (up/dn/lt/rt/fire/aimAngle)
 function Lockstep.send(ls, inp)
     local frame                       = ls.frame or 0
-    -- Store own input into the buffer — relay only broadcasts to others,
-    -- so we'd never receive our own packet back.
+    -- Store own input — relay only echoes to others, we never receive our own packet.
     ls.inputBuffer[frame]             = ls.inputBuffer[frame] or {}
     ls.inputBuffer[frame][ls.myIndex] = inp
 
@@ -123,16 +122,39 @@ function Lockstep.receive(ls)
     while event do
         if event.type == "receive" then
             local playerIndex, frame, inp      = unpackInput(event.data)
-            -- Slot into buffer by frame — this is what ready/consume will use.
             ls.inputBuffer[frame]              = ls.inputBuffer[frame] or {}
             ls.inputBuffer[frame][playerIndex] = inp
-            -- Also keep remoteInputs current so main.lua still works unchanged.
             ls.remoteInputs[playerIndex]       = inp
         elseif event.type == "disconnect" then
             print("[lockstep] Disconnected from relay")
         end
         event = ls.host:service(0)
     end
+end
+
+--- Returns true when all numPlayers inputs for ls.frame have arrived.
+--- Pure: reads state, changes nothing.
+---@param ls         LockstepState
+---@param numPlayers integer
+---@return boolean
+function Lockstep.ready(ls, numPlayers)
+    local bucket = ls.inputBuffer[ls.frame]
+    if not bucket then return false end
+    for i = 1, numPlayers do
+        if not bucket[i] then return false end
+    end
+    return true
+end
+
+--- Consume inputs for ls.frame and advance the frame counter.
+--- Only call after ready() returns true.
+---@param ls LockstepState
+---@return table  frameInputs[playerIndex] = inp
+function Lockstep.consume(ls)
+    local inputs = ls.inputBuffer[ls.frame]
+    ls.inputBuffer[ls.frame] = nil -- free memory
+    ls.frame = ls.frame + 1
+    return inputs
 end
 
 return Lockstep
