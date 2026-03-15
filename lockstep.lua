@@ -10,6 +10,7 @@ local Lockstep = {}
 ---@field server       any            enet peer (the relay)
 ---@field myIndex      integer        which player we are (1-based)
 ---@field remoteInputs table<integer, table>  latest input received per remote playerIndex
+---@field frame        integer        current frame number (incremented by main.lua each tick)
 
 --- Connects to the relay and waits until we receive our player index.
 --- Blocks in a tight loop — only call this from love.load().
@@ -48,15 +49,17 @@ function Lockstep.connect(relayHost, port)
     }
 end
 
--- Packet layout (4 bytes, LuaJIT-compatible — no string.pack):
+-- Packet layout (6 bytes, LuaJIT-compatible — no string.pack):
 --   [1] playerIndex  uint8
---   [2] buttons      uint8  bit0=up bit1=dn bit2=lt bit3=rt bit4=fire
---   [3] angle high   uint8  high byte of uint16
---   [4] angle low    uint8  low byte of uint16
+--   [2] frame high   uint8  high byte of uint16
+--   [3] frame low    uint8  low byte of uint16
+--   [4] buttons      uint8  bit0=up bit1=dn bit2=lt bit3=rt bit4=fire
+--   [5] angle high   uint8  high byte of uint16
+--   [6] angle low    uint8  low byte of uint16
 --
--- aimAngle [-pi, pi] is mapped to [0, 65535] and split across bytes 3-4.
+-- aimAngle [-pi, pi] is mapped to [0, 65535] and split across bytes 5-6.
 
-local function packInput(playerIndex, inp)
+local function packInput(playerIndex, frame, inp)
     local buttons = 0
     if inp.up then buttons = buttons + 1 end
     if inp.dn then buttons = buttons + 2 end
@@ -64,11 +67,15 @@ local function packInput(playerIndex, inp)
     if inp.rt then buttons = buttons + 8 end
     if inp.fire then buttons = buttons + 16 end
 
-    local angle = math.floor(((inp.aimAngle + math.pi) / (2 * math.pi)) * 65535 + 0.5) % 65536
-    local hi    = math.floor(angle / 256)
-    local lo    = angle % 256
+    local f = frame % 65536
+    local a = math.floor(((inp.aimAngle + math.pi) / (2 * math.pi)) * 65535 + 0.5) % 65536
 
-    return string.char(playerIndex, buttons, hi, lo)
+    return string.char(
+        playerIndex,
+        math.floor(f / 256), f % 256,
+        buttons,
+        math.floor(a / 256), a % 256
+    )
 end
 
 --- Send this frame's local input to the relay.
@@ -76,18 +83,22 @@ end
 ---@param ls  LockstepState
 ---@param inp table   raw input for our player (up/dn/lt/rt/fire/aimAngle)
 function Lockstep.send(ls, inp)
-    ls.server:send(packInput(ls.myIndex, inp))
+    ls.server:send(packInput(ls.myIndex, ls.frame or 0, inp))
     ls.host:flush()
 end
 
--- Inverse of packInput — same 4-byte layout.
 local function unpackInput(data)
     local playerIndex = string.byte(data, 1)
-    local buttons     = string.byte(data, 2)
-    local hi          = string.byte(data, 3)
-    local lo          = string.byte(data, 4)
-    local angle       = hi * 256 + lo
-    return playerIndex, {
+    local frameHi     = string.byte(data, 2)
+    local frameLo     = string.byte(data, 3)
+    local buttons     = string.byte(data, 4)
+    local angleHi     = string.byte(data, 5)
+    local angleLo     = string.byte(data, 6)
+
+    local frame       = frameHi * 256 + frameLo
+    local angle       = angleHi * 256 + angleLo
+
+    return playerIndex, frame, {
         up       = buttons % 2 >= 1,
         dn       = math.floor(buttons / 2) % 2 >= 1,
         lt       = math.floor(buttons / 4) % 2 >= 1,
@@ -104,7 +115,7 @@ function Lockstep.receive(ls)
     local event = ls.host:service(0)
     while event do
         if event.type == "receive" then
-            local playerIndex, inp = unpackInput(event.data)
+            local playerIndex, frame, inp = unpackInput(event.data)
             ls.remoteInputs[playerIndex] = inp
         elseif event.type == "disconnect" then
             print("[lockstep] Disconnected from relay")

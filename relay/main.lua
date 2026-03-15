@@ -30,8 +30,11 @@ function love.update()
             nextIndex = nextIndex + 1
         elseif event.type == "receive" then
             local from    = clients[event.peer] or "?"
-            local buttons = string.byte(event.data, 2)
-            addLog("P" .. from .. " -> " .. #event.data .. "b  buttons=" .. buttons)
+            local frameHi = string.byte(event.data, 2)
+            local frameLo = string.byte(event.data, 3)
+            local buttons = string.byte(event.data, 4)
+            local frame   = frameHi * 256 + frameLo
+            addLog("P" .. from .. "  f=" .. frame .. "  buttons=" .. buttons)
 
             -- Broadcast to every client except the sender
             for peer in pairs(clients) do
