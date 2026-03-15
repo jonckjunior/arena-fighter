@@ -58,13 +58,14 @@ function Lockstep.connect(relayHost, port, numPlayers, inputDelay)
     end
 
     return {
-        host        = host,
-        server      = server,
-        myIndex     = myIndex,
-        numPlayers  = numPlayers,
-        inputDelay  = inputDelay,
-        frame       = 0,
-        inputBuffer = {},
+        host          = host,
+        server        = server,
+        myIndex       = myIndex,
+        numPlayers    = numPlayers,
+        inputDelay    = inputDelay,
+        frame         = 0,
+        inputBuffer   = {},
+        stalledFrames = 0,
     }
 end
 
