@@ -1,23 +1,24 @@
-FIXED_DT          = 1 / 60
+FIXED_DT            = 1 / 60
 
-local World       = require "world"
-local Systems     = require "systems"
-local Spawners    = require "spawners"
-local Lockstep    = require "lockstep"
+local World         = require "world"
+local Systems       = require "systems"
+local Spawners      = require "spawners"
+local Lockstep      = require "lockstep"
 
-local accumulator = 0
-local DEBUG       = false
+local accumulator   = 0
+local DEBUG         = false
 local world
 local canvas
 
-local USE_NETWORK = true
-local RELAY_HOST  = "localhost"
-local RELAY_PORT  = 22122
-local NUM_PLAYERS = 2
-local INPUT_DELAY = 10
+local USE_NETWORK   = true
+local RELAY_HOST    = "localhost"
+local RELAY_PORT    = 22122
+local NUM_PLAYERS   = 2
+local INPUT_DELAY   = 10
+local stalledFrames = 0
 
-local myIndex     = 1
-local ls          = nil
+local myIndex       = 1
+local ls            = nil
 
 function love.load()
     love.graphics.setDefaultFilter("nearest", "nearest")
@@ -75,10 +76,10 @@ function love.update(dt)
             Lockstep.send(ls, myInput)
 
             if not Lockstep.ready(ls) then
-                ls.stalledFrames = ls.stalledFrames + 1
+                stalledFrames = stalledFrames + 1
                 break
             end
-            ls.stalledFrames = 0
+            stalledFrames = 0
 
             frameInputs = Lockstep.consume(ls)
         else
@@ -112,7 +113,7 @@ function love.draw()
     love.graphics.draw(canvas, 0, 0, 0, scaleFactor, scaleFactor)
 
     if USE_NETWORK then
-        local stall = ls.stalledFrames > 0 and "  STALLED x" .. ls.stalledFrames or ""
+        local stall = stalledFrames > 0 and "  STALLED x" .. stalledFrames or ""
         love.graphics.print("P" .. myIndex .. "  f=" .. ls.frame .. stall, 4, 4)
     end
 end

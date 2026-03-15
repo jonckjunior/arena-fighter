@@ -1,7 +1,3 @@
--- lockstep.lua — phase 3: connection + send + receive remote input.
--- remoteInputs[playerIndex] holds the latest decoded input from each remote player.
--- No frame buffering or gating yet — we just use whatever arrived most recently.
-
 local enet     = require "enet"
 local Lockstep = {}
 
@@ -9,7 +5,6 @@ local Lockstep = {}
 ---@field host         any            enet host
 ---@field server       any            enet peer (the relay)
 ---@field myIndex      integer        which player we are (1-based)
----@field remoteInputs table<integer, table>  latest input received per remote playerIndex
 ---@field frame        integer        current frame number (incremented by main.lua each tick)
 
 --- Connects to the relay and waits until we receive our player index.
@@ -56,15 +51,13 @@ function Lockstep.connect(relayHost, port, numPlayers, inputDelay)
     end
 
     return {
-        host          = host,
-        server        = server,
-        myIndex       = myIndex,
-        numPlayers    = numPlayers,
-        inputDelay    = inputDelay,
-        frame         = 0,
-        stalledFrames = 0,
-        remoteInputs  = {},
-        inputBuffer   = {},
+        host        = host,
+        server      = server,
+        myIndex     = myIndex,
+        numPlayers  = numPlayers,
+        inputDelay  = inputDelay,
+        frame       = 0,
+        inputBuffer = {},
     }
 end
 
@@ -147,7 +140,6 @@ function Lockstep.receive(ls)
             local playerIndex, frame, inp      = unpackInput(event.data)
             ls.inputBuffer[frame]              = ls.inputBuffer[frame] or {}
             ls.inputBuffer[frame][playerIndex] = inp
-            ls.remoteInputs[playerIndex]       = inp
         elseif event.type == "disconnect" then
             print("[lockstep] Disconnected from relay")
         end
