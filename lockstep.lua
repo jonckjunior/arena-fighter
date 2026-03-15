@@ -10,6 +10,7 @@ local Lockstep = {}
 ---@field inputDelay    integer        how many frames of input to buffer before starting simulation
 ---@field lastSentFrame integer        the latest frame number we've sent input for (used to guard against sending multiple times per frame when catching up)
 ---@field numPlayers    integer        total number of players in this game (used to check readiness)
+---@field stalledFrames  integer        how many consecutive frames we've been stalled on (for debugging/logging)
 
 --- Connects to the relay and waits until we receive our player index.
 --- Blocks in a tight loop — only call this from love.load().
@@ -110,10 +111,7 @@ function Lockstep.send(ls, inp)
     -- Guard: the tick loop can run multiple times per love.update when catching up.
     -- Only send once per target frame.
     if ls.lastSentFrame and ls.lastSentFrame >= targetFrame then return end
-    ls.lastSentFrame                        = targetFrame
-
-    ls.inputBuffer[targetFrame]             = ls.inputBuffer[targetFrame] or {}
-    ls.inputBuffer[targetFrame][ls.myIndex] = inp
+    ls.lastSentFrame = targetFrame
 
     ls.server:send(packInput(ls.myIndex, targetFrame, inp))
     ls.host:flush()
@@ -200,6 +198,31 @@ function Lockstep.bootstrap(ls)
     end
     -- Tell the send guard frames 0..inputDelay-1 are already handled.
     ls.lastSentFrame = ls.inputDelay - 1
+end
+
+--- Call once per simulation tick (inside the accumulator loop).
+--- Sends local input, then tries to consume the current frame.
+--- Returns frameInputs if all players are ready, nil if stalling.
+---@param ls       LockstepState
+---@param myInput  table   local player input, aim angle already filled
+---@return table|nil
+function Lockstep.tick(ls, myInput)
+    local targetFrame                       = ls.frame + ls.inputDelay
+
+    -- Store our own input directly — the relay only echoes to other clients
+    -- so we will never receive our own packet back.
+    ls.inputBuffer[targetFrame]             = ls.inputBuffer[targetFrame] or {}
+    ls.inputBuffer[targetFrame][ls.myIndex] = myInput
+
+    Lockstep.send(ls, myInput)
+
+    if not Lockstep.ready(ls) then
+        ls.stalledFrames = ls.stalledFrames + 1
+        return nil
+    end
+
+    ls.stalledFrames = 0
+    return Lockstep.consume(ls)
 end
 
 return Lockstep

@@ -44,28 +44,16 @@ function Systems.lifetime(w)
     end
 end
 
----Returns a raw input table for one local player
----@param playerIndex integer
-function Systems.gatherLocalInput(playerIndex)
-    local inp = {}
-
-    if playerIndex == 1 then
-        inp.up       = love.keyboard.isDown("w")
-        inp.dn       = love.keyboard.isDown("s")
-        inp.lt       = love.keyboard.isDown("a")
-        inp.rt       = love.keyboard.isDown("d")
-        inp.fire     = love.mouse.isDown(1)
-        -- aim angle stays as float for now, quantize later
-        inp.aimAngle = 0
-    elseif playerIndex == 2 then
-        inp.up       = love.keyboard.isDown("i")
-        inp.dn       = love.keyboard.isDown("k")
-        inp.lt       = love.keyboard.isDown("j")
-        inp.rt       = love.keyboard.isDown("l")
-        inp.fire     = love.keyboard.isDown("space")
-        inp.aimAngle = 0
-    end
-
+---Returns a raw input table for one player
+function Systems.gatherLocalInput()
+    local inp    = {}
+    inp.up       = love.keyboard.isDown("w")
+    inp.dn       = love.keyboard.isDown("s")
+    inp.lt       = love.keyboard.isDown("a")
+    inp.rt       = love.keyboard.isDown("d")
+    inp.fire     = love.mouse.isDown(1)
+    -- aim angle stays as float for now, quantize later
+    inp.aimAngle = 0
     return inp
 end
 
@@ -144,7 +132,7 @@ end
 -- Translate input → velocity
 ---@param w World
 ---@param dt number
-function Systems.inputToMovement(w, dt)
+function Systems.inputToVelocity(w, dt)
     for id in pairs(w.input) do
         if not w.velocity[id] or not w.speed[id] then goto continue end
 

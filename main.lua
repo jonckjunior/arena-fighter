@@ -1,32 +1,31 @@
-FIXED_DT            = 1 / 60
-SCALE_FACTOR        = 3
+FIXED_DT          = 1 / 60
+SCALE_FACTOR      = 3
 
-local World         = require "world"
-local Systems       = require "systems"
-local Spawners      = require "spawners"
-local Lockstep      = require "lockstep"
+local World       = require "world"
+local Systems     = require "systems"
+local Spawners    = require "spawners"
+local Lockstep    = require "lockstep"
 
-local accumulator   = 0
+local accumulator = 0
 
-local DEBUG         = false
-local gameWidth     = 480
-local gameHeight    = 270
+local DEBUG       = false
+local gameWidth   = 480
+local gameHeight  = 270
 
 local world
 local canvas
 local cursor
 
-local USE_NETWORK   = true
-local RELAY_HOST    = "localhost"
-local RELAY_PORT    = 22122
-local NUM_PLAYERS   = 2
-local INPUT_DELAY   = 10
-local stalledFrames = 0
+local USE_NETWORK = true
+local RELAY_HOST  = "localhost"
+local RELAY_PORT  = 22122
+local NUM_PLAYERS = 2
+local INPUT_DELAY = 10
 
-local myIndex       = 1
+local myIndex     = 1
 
 ---@type LockstepState
-local ls            = nil -- LockstepState, initialized in love.load if USE_NETWORK
+local ls          = nil -- LockstepState, initialized in love.load if USE_NETWORK
 
 function love.load()
     love.graphics.setDefaultFilter("nearest", "nearest")
@@ -66,9 +65,7 @@ function love.update(dt)
     dt = math.min(dt, 0.1)
     accumulator = accumulator + dt
 
-    cursor.pos.x, cursor.pos.y = love.mouse.getPosition()
-    cursor.pos.x = cursor.pos.x / SCALE_FACTOR
-    cursor.pos.y = cursor.pos.y / SCALE_FACTOR
+    updateCursor()
 
     if USE_NETWORK then
         Lockstep.receive(ls)
@@ -80,15 +77,8 @@ function love.update(dt)
         if USE_NETWORK then
             local myInput = Systems.gatherLocalInput(myIndex)
             Systems.fillAimAngleForPlayer(myInput, myIndex, world)
-            Lockstep.send(ls, myInput)
-
-            if not Lockstep.ready(ls) then
-                stalledFrames = stalledFrames + 1
-                break
-            end
-            stalledFrames = 0
-
-            frameInputs = Lockstep.consume(ls)
+            frameInputs = Lockstep.tick(ls, myInput)
+            if not frameInputs then break end -- Not ready for this frame yet, wait for more input packets to arrive
         else
             frameInputs = {
                 [1] = Systems.gatherLocalInput(1),
@@ -101,7 +91,7 @@ function love.update(dt)
         Systems.gunCooldown(world)
         Systems.gunFollow(world)
         Systems.firing(world)
-        Systems.inputToMovement(world, FIXED_DT)
+        Systems.inputToVelocity(world, FIXED_DT)
         Systems.applyVelocity(world, FIXED_DT)
         Systems.bulletTerrainCollision(world)
         Systems.collisionResolution(world)
@@ -109,6 +99,12 @@ function love.update(dt)
         Systems.lifetime(world)
         accumulator = accumulator - FIXED_DT
     end
+end
+
+function updateCursor()
+    cursor.pos.x, cursor.pos.y = love.mouse.getPosition()
+    cursor.pos.x = cursor.pos.x / SCALE_FACTOR
+    cursor.pos.y = cursor.pos.y / SCALE_FACTOR
 end
 
 ---@diagnostic disable-next-line: duplicate-set-field
@@ -121,7 +117,7 @@ function love.draw()
     love.graphics.draw(canvas, 0, 0, 0, SCALE_FACTOR, SCALE_FACTOR)
 
     if USE_NETWORK then
-        local stall = stalledFrames > 0 and "  STALLED x" .. stalledFrames or ""
+        local stall = ls.stalledFrames > 0 and "  STALLED x" .. ls.stalledFrames or ""
         love.graphics.print("P" .. myIndex .. "  f=" .. ls.frame .. stall, 4, 4)
     end
 end
