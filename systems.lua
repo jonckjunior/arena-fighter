@@ -35,7 +35,7 @@ function Systems.gunCooldown(w)
     end
 end
 
-function Systems.lifetime(w)
+function Systems.lifetime(w, FIXED_DT)
     for id, lt in pairs(w.lifetime) do
         lt.ttl = lt.ttl - FIXED_DT
         if lt.ttl <= 0 then
@@ -312,6 +312,19 @@ function Systems.collisionResolution(w)
         end
         ::continue::
     end
+end
+
+function Systems.runSystems(w, frameInputs, FIXED_DT)
+    Systems.applyInputs(w, frameInputs)
+    Systems.gunCooldown(w)
+    Systems.gunFollow(w)
+    Systems.firing(w)
+    Systems.inputToVelocity(w, FIXED_DT)
+    Systems.applyVelocity(w, FIXED_DT)
+    Systems.bulletTerrainCollision(w)
+    Systems.collisionResolution(w)
+    Systems.animation(w, FIXED_DT)
+    Systems.lifetime(w, FIXED_DT)
 end
 
 return Systems
