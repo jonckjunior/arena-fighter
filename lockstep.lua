@@ -17,7 +17,7 @@ local Lockstep = {}
 ---@param relayHost string
 ---@param port      integer
 ---@return LockstepState
-function Lockstep.connect(relayHost, port)
+function Lockstep.connect(relayHost, port, numPlayers, inputDelay)
     local host    = enet.host_create()
     local server  = host:connect(relayHost .. ":" .. port)
 
@@ -41,12 +41,30 @@ function Lockstep.connect(relayHost, port)
         end
     end
 
+    -- Wait for the relay's "go" signal (0xFE) — sent once all players are connected.
+    -- This ensures every client starts from frame 0 at the same moment.
+    print("[lockstep] Waiting for all players...")
+    local ready = false
+    while not ready do
+        local event = host:service(100)
+        if event and event.type == "receive" then
+            if string.byte(event.data, 1) == 0xFE then
+                ready = true
+                print("[lockstep] Go! Starting from frame 0.")
+            end
+        end
+    end
+
     return {
-        host         = host,
-        server       = server,
-        myIndex      = myIndex,
-        remoteInputs = {}, -- [playerIndex] = latest input (main.lua uses this until step 4)
-        inputBuffer  = {}, -- [frame][playerIndex] = inp
+        host          = host,
+        server        = server,
+        myIndex       = myIndex,
+        numPlayers    = numPlayers,
+        inputDelay    = inputDelay,
+        frame         = 0,
+        stalledFrames = 0,
+        remoteInputs  = {},
+        inputBuffer   = {},
     }
 end
 
@@ -84,12 +102,17 @@ end
 ---@param ls  LockstepState
 ---@param inp table   raw input for our player (up/dn/lt/rt/fire/aimAngle)
 function Lockstep.send(ls, inp)
-    local frame                       = ls.frame or 0
-    -- Store own input — relay only echoes to others, we never receive our own packet.
-    ls.inputBuffer[frame]             = ls.inputBuffer[frame] or {}
-    ls.inputBuffer[frame][ls.myIndex] = inp
+    local targetFrame = ls.frame + ls.inputDelay
 
-    ls.server:send(packInput(ls.myIndex, frame, inp))
+    -- Guard: the tick loop can run multiple times per love.update when catching up.
+    -- Only send once per target frame.
+    if ls.lastSentFrame and ls.lastSentFrame >= targetFrame then return end
+    ls.lastSentFrame                        = targetFrame
+
+    ls.inputBuffer[targetFrame]             = ls.inputBuffer[targetFrame] or {}
+    ls.inputBuffer[targetFrame][ls.myIndex] = inp
+
+    ls.server:send(packInput(ls.myIndex, targetFrame, inp))
     ls.host:flush()
 end
 
@@ -137,10 +160,10 @@ end
 ---@param ls         LockstepState
 ---@param numPlayers integer
 ---@return boolean
-function Lockstep.ready(ls, numPlayers)
+function Lockstep.ready(ls)
     local bucket = ls.inputBuffer[ls.frame]
     if not bucket then return false end
-    for i = 1, numPlayers do
+    for i = 1, ls.numPlayers do
         if not bucket[i] then return false end
     end
     return true
@@ -155,6 +178,22 @@ function Lockstep.consume(ls)
     ls.inputBuffer[ls.frame] = nil -- free memory
     ls.frame = ls.frame + 1
     return inputs
+end
+
+--- Call once right after connect() returns.
+--- Fills neutral inputs for ALL players for frames 0..(inputDelay-1) locally.
+--- No packets sent — every client runs the same code so they all agree.
+---@param ls LockstepState
+function Lockstep.bootstrap(ls)
+    local neutral = { up = false, dn = false, lt = false, rt = false, fire = false, aimAngle = 0 }
+    for f = 0, ls.inputDelay - 1 do
+        ls.inputBuffer[f] = {}
+        for p = 1, ls.numPlayers do
+            ls.inputBuffer[f][p] = neutral
+        end
+    end
+    -- Tell the send guard frames 0..inputDelay-1 are already handled.
+    ls.lastSentFrame = ls.inputDelay - 1
 end
 
 return Lockstep

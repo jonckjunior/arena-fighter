@@ -10,13 +10,14 @@ local DEBUG       = false
 local world
 local canvas
 
--- Toggle this to test networking. When false: pure local, myIndex = 1.
 local USE_NETWORK = true
-local RELAY_HOST  = "localhost" -- change to relay machine's IP for remote play
+local RELAY_HOST  = "localhost"
 local RELAY_PORT  = 22122
+local NUM_PLAYERS = 2
+local INPUT_DELAY = 10
 
-local myIndex     = 1   -- overwritten by Lockstep.connect() when USE_NETWORK = true
-local ls          = nil -- LockstepState, set in love.load when USE_NETWORK = true
+local myIndex     = 1
+local ls          = nil
 
 function love.load()
     love.graphics.setDefaultFilter("nearest", "nearest")
@@ -28,18 +29,17 @@ function love.load()
     canvas = love.graphics.newCanvas(gameWidth, gameHeight)
     canvas:setFilter("nearest", "nearest")
 
-    -- Connect before spawning — myIndex determines which player we control.
     if USE_NETWORK then
-        ls      = Lockstep.connect(RELAY_HOST, RELAY_PORT)
+        ls      = Lockstep.connect(RELAY_HOST, RELAY_PORT, NUM_PLAYERS, INPUT_DELAY)
         myIndex = ls.myIndex
+        Lockstep.bootstrap(ls)
     end
 
     world = World.new()
     Spawners.player(world, 100, 100, 1)
     Spawners.player(world, 300, 100, 2)
-    local gunOwner = 1 -- give gun to p1 for now
     for id, pidx in pairs(world.playerIndex) do
-        if pidx.index == gunOwner then
+        if pidx.index == 1 then
             Spawners.gun(world, id, "ak47")
             break
         end
@@ -62,38 +62,31 @@ function love.update(dt)
     cursor.pos.x = cursor.pos.x / scaleFactor
     cursor.pos.y = cursor.pos.y / scaleFactor
 
-    -- Drain all pending packets once per frame, before the tick loop.
     if USE_NETWORK then
         Lockstep.receive(ls)
     end
 
     while accumulator >= FIXED_DT do
-        -- Gather local keyboard state for all players (local mode uses both;
-        -- networked mode only our own matters — remote gets overwritten below).
-        local frameInputs = {
-            [1] = Systems.gatherLocalInput(1),
-            [2] = Systems.gatherLocalInput(2),
-        }
-
-        -- Our player's aim angle comes from the local mouse.
-        -- fillAimAngles sets all players, but remote will be overwritten next.
-        Systems.fillAimAngles(frameInputs, world)
+        local frameInputs
 
         if USE_NETWORK then
-            -- Replace the remote player's input with whatever arrived from the relay.
-            -- Falls back to neutral (standing still, not firing) if nothing yet.
-            local remoteIndex = myIndex == 1 and 2 or 1
-            frameInputs[remoteIndex] = ls.remoteInputs[remoteIndex] or {
-                up = false,
-                dn = false,
-                lt = false,
-                rt = false,
-                fire = false,
-                aimAngle = 0,
-            }
+            local myInput = Systems.gatherLocalInput(myIndex)
+            Systems.fillAimAngleForPlayer(myInput, myIndex, world)
+            Lockstep.send(ls, myInput)
 
-            -- Send our input after aim angle is filled in.
-            Lockstep.send(ls, frameInputs[myIndex])
+            if not Lockstep.ready(ls) then
+                ls.stalledFrames = ls.stalledFrames + 1
+                break
+            end
+            ls.stalledFrames = 0
+
+            frameInputs = Lockstep.consume(ls)
+        else
+            frameInputs = {
+                [1] = Systems.gatherLocalInput(1),
+                [2] = Systems.gatherLocalInput(2),
+            }
+            Systems.fillAimAngles(frameInputs, world)
         end
 
         Systems.applyInputs(world, frameInputs)
@@ -118,9 +111,9 @@ function love.draw()
     love.graphics.setCanvas()
     love.graphics.draw(canvas, 0, 0, 0, scaleFactor, scaleFactor)
 
-    -- Debug: show which player we are when networking is active
     if USE_NETWORK then
-        love.graphics.print("Player " .. myIndex, 4, 4)
+        local stall = ls.stalledFrames > 0 and "  STALLED x" .. ls.stalledFrames or ""
+        love.graphics.print("P" .. myIndex .. "  f=" .. ls.frame .. stall, 4, 4)
     end
 end
 

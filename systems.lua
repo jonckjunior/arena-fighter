@@ -69,6 +69,20 @@ function Systems.gatherLocalInput(playerIndex)
     return inp
 end
 
+function Systems.fillAimAngleForPlayer(inp, playerIndex, w)
+    for id, pidx in pairs(w.playerIndex) do
+        if pidx.index == playerIndex then
+            local pos = w.position[id]
+            if pos then
+                local mx = love.mouse.getX() / scaleFactor
+                local my = love.mouse.getY() / scaleFactor
+                inp.aimAngle = math.atan2(my - pos.y, mx - pos.x)
+            end
+            break
+        end
+    end
+end
+
 function Systems.fillAimAngles(frameInputs, w)
     for id, pidx in pairs(w.playerIndex) do
         local inp = frameInputs[pidx.index]
