@@ -6,11 +6,17 @@ local Lockstep = {}
 ---@field server       any            enet peer (the relay)
 ---@field myIndex      integer        which player we are (1-based)
 ---@field frame        integer        current frame number (incremented by main.lua each tick)
+---@field inputBuffer   table           frame number → player index → input table
+---@field inputDelay    integer        how many frames of input to buffer before starting simulation
+---@field lastSentFrame integer        the latest frame number we've sent input for (used to guard against sending multiple times per frame when catching up)
+---@field numPlayers    integer        total number of players in this game (used to check readiness)
 
 --- Connects to the relay and waits until we receive our player index.
 --- Blocks in a tight loop — only call this from love.load().
 ---@param relayHost string
 ---@param port      integer
+---@param numPlayers integer
+---@param inputDelay integer   how many frames of input to buffer before starting simulation
 ---@return LockstepState
 function Lockstep.connect(relayHost, port, numPlayers, inputDelay)
     local host    = enet.host_create()
@@ -70,7 +76,11 @@ end
 --   [6] angle low    uint8  low byte of uint16
 --
 -- aimAngle [-pi, pi] is mapped to [0, 65535] and split across bytes 5-6.
-
+---Ready the input to be sent across the network
+---@param playerIndex integer
+---@param frame integer
+---@param inp table   raw input for our player (up/dn/lt/rt/fire/aimAngle)
+---@return string
 local function packInput(playerIndex, frame, inp)
     local buttons = 0
     if inp.up then buttons = buttons + 1 end
@@ -109,6 +119,11 @@ function Lockstep.send(ls, inp)
     ls.host:flush()
 end
 
+---Unpacks the data received from the relay into playerIndex, frame, and input table.
+---@param data string
+---@return integer
+---@return integer
+---@return table
 local function unpackInput(data)
     local playerIndex = string.byte(data, 1)
     local frameHi     = string.byte(data, 2)
@@ -150,7 +165,6 @@ end
 --- Returns true when all numPlayers inputs for ls.frame have arrived.
 --- Pure: reads state, changes nothing.
 ---@param ls         LockstepState
----@param numPlayers integer
 ---@return boolean
 function Lockstep.ready(ls)
     local bucket = ls.inputBuffer[ls.frame]
