@@ -1,4 +1,5 @@
 FIXED_DT            = 1 / 60
+SCALE_FACTOR        = 3
 
 local World         = require "world"
 local Systems       = require "systems"
@@ -6,9 +7,14 @@ local Spawners      = require "spawners"
 local Lockstep      = require "lockstep"
 
 local accumulator   = 0
+
 local DEBUG         = false
+local gameWidth     = 480
+local gameHeight    = 270
+
 local world
 local canvas
+local cursor
 
 local USE_NETWORK   = true
 local RELAY_HOST    = "localhost"
@@ -18,14 +24,14 @@ local INPUT_DELAY   = 10
 local stalledFrames = 0
 
 local myIndex       = 1
-local ls            = nil
+
+---@type LockstepState
+local ls            = nil -- LockstepState, initialized in love.load if USE_NETWORK
 
 function love.load()
     love.graphics.setDefaultFilter("nearest", "nearest")
-    love.window.setTitle("Hello World")
-    gameWidth, gameHeight = 480, 270
-    scaleFactor = 3
-    love.window.setMode(gameWidth * scaleFactor, gameHeight * scaleFactor)
+    love.window.setTitle("Arena Fighter")
+    love.window.setMode(gameWidth * SCALE_FACTOR, gameHeight * SCALE_FACTOR)
 
     canvas = love.graphics.newCanvas(gameWidth, gameHeight)
     canvas:setFilter("nearest", "nearest")
@@ -55,13 +61,14 @@ function love.load()
     }
 end
 
+---@diagnostic disable-next-line: duplicate-set-field
 function love.update(dt)
     dt = math.min(dt, 0.1)
     accumulator = accumulator + dt
 
     cursor.pos.x, cursor.pos.y = love.mouse.getPosition()
-    cursor.pos.x = cursor.pos.x / scaleFactor
-    cursor.pos.y = cursor.pos.y / scaleFactor
+    cursor.pos.x = cursor.pos.x / SCALE_FACTOR
+    cursor.pos.y = cursor.pos.y / SCALE_FACTOR
 
     if USE_NETWORK then
         Lockstep.receive(ls)
@@ -104,13 +111,14 @@ function love.update(dt)
     end
 end
 
+---@diagnostic disable-next-line: duplicate-set-field
 function love.draw()
     love.graphics.setCanvas(canvas)
     love.graphics.clear(0.2, 0.2, 0.2)
     Systems.draw(world)
     love.graphics.draw(cursor.sprite, cursor.pos.x, cursor.pos.y)
     love.graphics.setCanvas()
-    love.graphics.draw(canvas, 0, 0, 0, scaleFactor, scaleFactor)
+    love.graphics.draw(canvas, 0, 0, 0, SCALE_FACTOR, SCALE_FACTOR)
 
     if USE_NETWORK then
         local stall = stalledFrames > 0 and "  STALLED x" .. stalledFrames or ""

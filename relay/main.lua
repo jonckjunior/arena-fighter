@@ -21,6 +21,7 @@ end
 
 print("Relay listening on port " .. PORT)
 
+---@diagnostic disable-next-line: duplicate-set-field
 function love.update()
     if not host then return end
 
@@ -62,6 +63,7 @@ function love.update()
     end
 end
 
+---@diagnostic disable-next-line: duplicate-set-field
 function love.draw()
     local status = started and "RUNNING" or ("waiting " .. (nextIndex - 1) .. "/" .. NUM_PLAYERS)
     love.graphics.print("Relay  port=" .. PORT .. "  " .. status, 10, 10)

@@ -74,8 +74,8 @@ function Systems.fillAimAngleForPlayer(inp, playerIndex, w)
         if pidx.index == playerIndex then
             local pos = w.position[id]
             if pos then
-                local mx = love.mouse.getX() / scaleFactor
-                local my = love.mouse.getY() / scaleFactor
+                local mx = love.mouse.getX() / SCALE_FACTOR
+                local my = love.mouse.getY() / SCALE_FACTOR
                 inp.aimAngle = math.atan2(my - pos.y, mx - pos.x)
             end
             break
@@ -89,8 +89,8 @@ function Systems.fillAimAngles(frameInputs, w)
         local pos = w.position[id]
         if inp and pos then
             -- for now all players use the mouse, split-screen aim comes later
-            local mx = love.mouse.getX() / scaleFactor
-            local my = love.mouse.getY() / scaleFactor
+            local mx = love.mouse.getX() / SCALE_FACTOR
+            local my = love.mouse.getY() / SCALE_FACTOR
             inp.aimAngle = math.atan2(my - pos.y, mx - pos.x)
         end
     end
