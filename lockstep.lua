@@ -45,7 +45,8 @@ function Lockstep.connect(relayHost, port)
         host         = host,
         server       = server,
         myIndex      = myIndex,
-        remoteInputs = {}, -- [playerIndex] = latest decoded input table
+        remoteInputs = {}, -- [playerIndex] = latest input (used by main.lua until step 4)
+        inputBuffer  = {}, -- [frame][playerIndex] = inp (new, used by ready/consume later)
     }
 end
 
@@ -83,7 +84,13 @@ end
 ---@param ls  LockstepState
 ---@param inp table   raw input for our player (up/dn/lt/rt/fire/aimAngle)
 function Lockstep.send(ls, inp)
-    ls.server:send(packInput(ls.myIndex, ls.frame or 0, inp))
+    local frame                       = ls.frame or 0
+    -- Store own input into the buffer — relay only broadcasts to others,
+    -- so we'd never receive our own packet back.
+    ls.inputBuffer[frame]             = ls.inputBuffer[frame] or {}
+    ls.inputBuffer[frame][ls.myIndex] = inp
+
+    ls.server:send(packInput(ls.myIndex, frame, inp))
     ls.host:flush()
 end
 
@@ -115,8 +122,12 @@ function Lockstep.receive(ls)
     local event = ls.host:service(0)
     while event do
         if event.type == "receive" then
-            local playerIndex, frame, inp = unpackInput(event.data)
-            ls.remoteInputs[playerIndex] = inp
+            local playerIndex, frame, inp      = unpackInput(event.data)
+            -- Slot into buffer by frame — this is what ready/consume will use.
+            ls.inputBuffer[frame]              = ls.inputBuffer[frame] or {}
+            ls.inputBuffer[frame][playerIndex] = inp
+            -- Also keep remoteInputs current so main.lua still works unchanged.
+            ls.remoteInputs[playerIndex]       = inp
         elseif event.type == "disconnect" then
             print("[lockstep] Disconnected from relay")
         end
