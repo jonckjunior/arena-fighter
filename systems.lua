@@ -16,7 +16,7 @@ function Systems.gunFollow(w)
         local angle       = inp.aimAngle
         local offset      = 4
         w.position[gid].x = pos.x + math.cos(angle) * offset
-        w.position[gid].y = pos.y + math.sin(angle) * offset
+        w.position[gid].y = pos.y + math.sin(angle) * offset + 12 -- hack to move the gun down
 
         -- store rotation and vertical flip on animation for draw to use
         if w.animation[gid] then
@@ -66,9 +66,23 @@ function Systems.fillAimAngleForPlayer(inp, playerIndex, w, mx, my)
     for id, pidx in pairs(w.playerIndex) do
         if pidx.index == playerIndex then
             local pos = w.position[id]
-            if pos then
-                inp.aimAngle = math.atan2(my - pos.y, mx - pos.x)
+            if not pos then break end
+
+            -- find this player's gun muzzle if they have one
+            local muzzleX, muzzleY = pos.x, pos.y -- fallback to player center
+            for gid in pairs(w.equippedBy) do
+                if w.equippedBy[gid].ownerId == id and w.position[gid] and w.animation[gid] then
+                    local anim = w.animation[gid]
+                    local iw   = anim.frames[anim.current]:getWidth()
+                    -- use last frame's angle to find muzzle, good enough
+                    local a    = anim.angle or 0
+                    muzzleX    = w.position[gid].x + math.cos(a) * (iw / 2)
+                    muzzleY    = w.position[gid].y + math.sin(a) * (iw / 2)
+                    break
+                end
             end
+
+            inp.aimAngle = math.atan2(my - muzzleY, mx - muzzleX)
             break
         end
     end
@@ -79,8 +93,20 @@ function Systems.fillAimAngles(frameInputs, w, mx, my)
         local inp = frameInputs[pidx.index]
         local pos = w.position[id]
         if inp and pos then
-            -- for now all players use the mouse, split-screen aim comes later
-            inp.aimAngle = math.atan2(my - pos.y, mx - pos.x)
+            local muzzleX, muzzleY = pos.x, pos.y -- fallback to player center
+            for gid in pairs(w.equippedBy) do
+                if w.equippedBy[gid].ownerId == id and w.position[gid] and w.animation[gid] then
+                    local anim = w.animation[gid]
+                    local iw   = anim.frames[anim.current]:getWidth()
+                    -- use last frame's angle to find muzzle, good enough
+                    local a    = anim.angle or 0
+                    muzzleX    = w.position[gid].x + math.cos(a) * (iw / 2)
+                    muzzleY    = w.position[gid].y + math.sin(a) * (iw / 2)
+                    break
+                end
+            end
+
+            inp.aimAngle = math.atan2(my - muzzleY, mx - muzzleX)
         end
     end
 end
