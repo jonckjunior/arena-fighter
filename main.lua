@@ -17,13 +17,17 @@ local world
 local canvas
 local cursor
 
-local USE_NETWORK = true
+local USE_NETWORK = false
 local RELAY_HOST  = "localhost"
 local RELAY_PORT  = 22122
 local NUM_PLAYERS = 2
 local INPUT_DELAY = 10
 
 local myIndex     = 1
+
+local gameState   = "playing" -- "playing", "roundOver"
+---@type integer|false|nil
+local roundWinner = nil       -- entity id, or false for a draw
 
 ---@type LockstepState
 local ls          = nil -- LockstepState, initialized in love.load if USE_NETWORK
@@ -88,8 +92,12 @@ function love.update(dt)
     end
 
     while accumulator >= FIXED_DT do
-        local frameInputs
+        if gameState ~= "playing" then
+            accumulator = accumulator - FIXED_DT
+            goto continueAccumulator
+        end
 
+        local frameInputs
         if USE_NETWORK then
             local myInput = Systems.gatherLocalInput()
             Systems.fillAimAngleForPlayer(myInput, myIndex, world)
@@ -97,14 +105,20 @@ function love.update(dt)
             if not frameInputs then break end -- Not ready for this frame yet, wait for more input packets to arrive
         else
             frameInputs = {
-                [1] = Systems.gatherLocalInput(1),
-                [2] = Systems.gatherLocalInput(2),
+                [1] = Systems.gatherLocalInput()
             }
             Systems.fillAimAngles(frameInputs, world)
         end
 
         Systems.runSystems(world, frameInputs, FIXED_DT)
+        local result = Systems.checkWin(world)
+        if result then
+            gameState   = "roundOver"
+            roundWinner = result.winner or false -- false = draw, id = winner
+        end
+
         accumulator = accumulator - FIXED_DT
+        ::continueAccumulator::
     end
 end
 
@@ -113,6 +127,7 @@ function love.draw()
     love.graphics.setCanvas(canvas)
     love.graphics.clear(0.2, 0.2, 0.2)
     Systems.draw(world)
+    Systems.drawHpBars(world)
     love.graphics.draw(cursor.sprite, cursor.pos.x, cursor.pos.y)
     love.graphics.setCanvas()
 
@@ -120,6 +135,22 @@ function love.draw()
     if USE_NETWORK then
         local stall = ls.stalledFrames > 0 and "  STALLED x" .. ls.stalledFrames or ""
         love.graphics.print("P" .. myIndex .. "  f=" .. ls.frame .. stall, 4, 4)
+    end
+
+    if gameState == "roundOver" then
+        local text
+        if roundWinner then
+            local pidx = world.playerIndex[roundWinner]
+            text = pidx and ("Player " .. pidx.index .. " wins!") or "Winner!"
+        else
+            text = "Draw!"
+        end
+        local sw = love.graphics.getWidth()
+        local sh = love.graphics.getHeight()
+        love.graphics.setColor(0, 0, 0, 0.6)
+        love.graphics.rectangle("fill", 0, 0, sw, sh)
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.printf(text, 0, sh / 2 - 8, sw, "center")
     end
 end
 

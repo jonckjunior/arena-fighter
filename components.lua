@@ -59,4 +59,8 @@ function C.drawLayer(layer)
     return { layer = layer or 0 }
 end
 
+function C.hp(max)
+    return { current = max, max = max }
+end
+
 return C

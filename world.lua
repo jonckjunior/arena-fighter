@@ -15,6 +15,7 @@
 ---@field equippedBy table<integer, {ownerId: integer}>
 ---@field drawLayer table<integer, {layer: integer}>
 ---@field playerIndex table<integer, {index: integer}>
+---@field hp table<integer, {current: number, max: number}>
 local World = {}
 
 ---Creates a new world with all its components
@@ -38,6 +39,7 @@ function World.new()
         equippedBy  = {}, -- { ownerId }
         drawLayer   = {}, -- { layer }
         playerIndex = {}, -- { index }
+        hp          = {}, -- { current, max }
     }
 end
 

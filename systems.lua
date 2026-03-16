@@ -36,11 +36,16 @@ function Systems.gunCooldown(w)
 end
 
 function Systems.lifetime(w, FIXED_DT)
+    local toDestroy = {}
     for id, lt in pairs(w.lifetime) do
         lt.ttl = lt.ttl - FIXED_DT
         if lt.ttl <= 0 then
-            World.destroy(w, id)
+            toDestroy[#toDestroy + 1] = id
         end
+    end
+
+    for _, id in ipairs(toDestroy) do
+        World.destroy(w, id)
     end
 end
 
@@ -182,6 +187,8 @@ function Systems.bulletTerrainCollision(w)
         end
     end
 
+    local toDestroy = {}
+
     for bid in pairs(w.bullet) do
         if not w.position[bid] or not w.collider[bid] then goto continue end
 
@@ -191,11 +198,68 @@ function Systems.bulletTerrainCollision(w)
             local minD = w.collider[bid].radius + w.collider[sid].radius
 
             if dx * dx + dy * dy < minD * minD then
-                World.destroy(w, bid)
+                toDestroy[#toDestroy + 1] = bid
                 break -- bullet is gone, no point checking remaining solids
             end
         end
         ::continue::
+    end
+
+    for _, bid in ipairs(toDestroy) do
+        World.destroy(w, bid)
+    end
+end
+
+---@param w World
+function Systems.bulletPlayerCollision(w)
+    -- Collect damageable players once — stable list, iteration order irrelevant
+    -- since we collect all hits before applying any damage or destroys.
+    local players = {}
+    for pid in pairs(w.hp) do
+        if w.position[pid] and w.collider[pid] then
+            players[#players + 1] = pid
+        end
+    end
+
+    local toDestroy = {}
+
+    for bid in pairs(w.bullet) do
+        if not w.position[bid] or not w.collider[bid] then goto continueBullet end
+
+        local bullet     = w.bullet[bid]
+        local bullRadius = w.collider[bid].radius
+
+        -- Collect every player this bullet overlaps this frame.
+        -- We don't break early so a large bullet can hit multiple players.
+        local hits       = {}
+        for _, pid in ipairs(players) do
+            if pid == bullet.ownerId then goto continuePlayer end
+
+            local dx   = w.position[bid].x - w.position[pid].x
+            local dy   = w.position[bid].y - w.position[pid].y
+            local minD = bullRadius + w.collider[pid].radius
+
+            if dx * dx + dy * dy < minD * minD then
+                hits[#hits + 1] = pid
+            end
+            ::continuePlayer::
+        end
+
+        -- Apply damage to all hit players, then destroy the bullet.
+        -- Doing this after the loop keeps damage application deterministic:
+        -- every client sees the same hits table in the same order (ipairs).
+        if #hits > 0 then
+            for _, pid in ipairs(hits) do
+                w.hp[pid].current = w.hp[pid].current - bullet.damage
+            end
+            toDestroy[#toDestroy + 1] = bid
+        end
+
+        ::continueBullet::
+    end
+
+    for _, bid in ipairs(toDestroy) do
+        World.destroy(w, bid)
     end
 end
 
@@ -271,6 +335,38 @@ function Systems.draw(w)
     end
 end
 
+---@param w World
+function Systems.drawHpBars(w)
+    local BAR_W  = 24
+    local BAR_H  = 3
+    local OFFSET = 14 -- pixels below entity center
+
+    for id, hp in pairs(w.hp) do
+        if not w.position[id] then goto continue end
+
+        local x    = math.floor(w.position[id].x + 0.5)
+        local y    = math.floor(w.position[id].y + 0.5)
+        local left = x - BAR_W / 2
+        local top  = y + OFFSET
+        local fill = math.max(0, hp.current / hp.max)
+
+        -- background
+        love.graphics.setColor(0.2, 0.2, 0.2)
+        love.graphics.rectangle("fill", left, top, BAR_W, BAR_H)
+
+        -- filled portion
+        local r = 1 - fill
+        local g = fill
+        love.graphics.setColor(r, g, 0)
+        love.graphics.rectangle("fill", left, top, BAR_W * fill, BAR_H)
+
+        -- reset color
+        love.graphics.setColor(1, 1, 1)
+
+        ::continue::
+    end
+end
+
 ---Resolves collisions
 ---@param w World
 function Systems.collisionResolution(w)
@@ -314,6 +410,39 @@ function Systems.collisionResolution(w)
     end
 end
 
+---@param w World
+function Systems.death(w)
+    local toDestroy = {}
+    for id, hp in pairs(w.hp) do
+        if hp.current <= 0 then
+            toDestroy[#toDestroy + 1] = id
+        end
+    end
+    for _, id in ipairs(toDestroy) do
+        World.destroy(w, id)
+    end
+end
+
+--- Check if the round is over after death has run.
+--- Returns:
+---   nil               — round still in progress
+---   { winner = id }   — one player remains
+---   { winner = nil }  — everyone died on the same frame (draw)
+---@param w World
+---@return {winner: integer|nil}|nil
+function Systems.checkWin(w)
+    local alive = {}
+    for id in pairs(w.playerIndex) do
+        if w.hp[id] then -- hp present means still alive
+            alive[#alive + 1] = id
+        end
+    end
+
+    if #alive == 1 then return { winner = alive[1] } end
+    if #alive == 0 then return { winner = nil } end
+    return nil -- 2+ players still alive, round continues
+end
+
 function Systems.runSystems(w, frameInputs, FIXED_DT)
     Systems.applyInputs(w, frameInputs)
     Systems.gunCooldown(w)
@@ -321,7 +450,9 @@ function Systems.runSystems(w, frameInputs, FIXED_DT)
     Systems.firing(w)
     Systems.inputToVelocity(w, FIXED_DT)
     Systems.applyVelocity(w, FIXED_DT)
+    Systems.bulletPlayerCollision(w)
     Systems.bulletTerrainCollision(w)
+    Systems.death(w)
     Systems.collisionResolution(w)
     Systems.animation(w, FIXED_DT)
     Systems.lifetime(w, FIXED_DT)

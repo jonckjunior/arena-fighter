@@ -17,7 +17,7 @@ Spawners.GunDefs = {
         damage      = 20,
         bulletSpeed = 700,
         bulletCount = 1,
-        spread      = 0.1,
+        spread      = 0,
         sprite      = "Assets/Sprites/Weapons/Tiles/tile_0005.png",
     },
 }
@@ -37,6 +37,7 @@ function Spawners.player(w, x, y, index)
     w.collider[id]    = C.collider(9)
     w.drawLayer[id]   = C.drawLayer(1)
     w.playerIndex[id] = C.playerIndex(index)
+    w.hp[id]          = C.hp(100)
     return id
 end
 
