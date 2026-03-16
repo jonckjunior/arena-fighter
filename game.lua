@@ -99,12 +99,12 @@ function Game.update(dt)
         local frameInputs
         if Game.USE_NETWORK then
             local myInput = Systems.gatherLocalInput()
-            Systems.fillAimAngleForPlayer(myInput, myIndex, world)
+            Systems.fillAimAngleForPlayer(myInput, myIndex, world, cursor.x, cursor.y)
             frameInputs = Lockstep.tick(ls, myInput)
             if not frameInputs then break end
         else
             frameInputs = { [1] = Systems.gatherLocalInput() }
-            Systems.fillAimAngles(frameInputs, world)
+            Systems.fillAimAngles(frameInputs, world, cursor.x, cursor.y)
         end
 
         Systems.runSystems(world, frameInputs, FIXED_DT)
@@ -131,7 +131,7 @@ function Game.draw(canvas)
     if cursor.sprite then
         local hw = cursor.sprite:getWidth() / 2
         local hh = cursor.sprite:getHeight() / 2
-        love.graphics.draw(cursor.sprite, cursor.x + hw, cursor.y + hh, 0, 1, 1, hw, hh)
+        love.graphics.draw(cursor.sprite, cursor.x, cursor.y, 0, 1, 1, hw, hh)
     end
     love.graphics.setCanvas()
 

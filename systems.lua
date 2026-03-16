@@ -16,7 +16,7 @@ function Systems.gunFollow(w)
         local angle       = inp.aimAngle
         local offset      = 4
         w.position[gid].x = pos.x + math.cos(angle) * offset
-        w.position[gid].y = pos.y + math.sin(angle) * offset + 12
+        w.position[gid].y = pos.y + math.sin(angle) * offset
 
         -- store rotation and vertical flip on animation for draw to use
         if w.animation[gid] then
@@ -62,13 +62,11 @@ function Systems.gatherLocalInput()
     return inp
 end
 
-function Systems.fillAimAngleForPlayer(inp, playerIndex, w)
+function Systems.fillAimAngleForPlayer(inp, playerIndex, w, mx, my)
     for id, pidx in pairs(w.playerIndex) do
         if pidx.index == playerIndex then
             local pos = w.position[id]
             if pos then
-                local mx = love.mouse.getX() / SCALE_FACTOR
-                local my = love.mouse.getY() / SCALE_FACTOR
                 inp.aimAngle = math.atan2(my - pos.y, mx - pos.x)
             end
             break
@@ -76,14 +74,12 @@ function Systems.fillAimAngleForPlayer(inp, playerIndex, w)
     end
 end
 
-function Systems.fillAimAngles(frameInputs, w)
+function Systems.fillAimAngles(frameInputs, w, mx, my)
     for id, pidx in pairs(w.playerIndex) do
         local inp = frameInputs[pidx.index]
         local pos = w.position[id]
         if inp and pos then
             -- for now all players use the mouse, split-screen aim comes later
-            local mx = love.mouse.getX() / SCALE_FACTOR
-            local my = love.mouse.getY() / SCALE_FACTOR
             inp.aimAngle = math.atan2(my - pos.y, mx - pos.x)
         end
     end
