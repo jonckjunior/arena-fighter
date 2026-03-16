@@ -98,13 +98,11 @@ function Game.update(dt)
 
         local frameInputs
         if Game.USE_NETWORK then
-            local myInput = Systems.gatherLocalInput()
-            Systems.fillAimAngleForPlayer(myInput, myIndex, world, cursor.x, cursor.y)
+            local myInput = Systems.gatherLocalInput(myIndex, world, cursor.x, cursor.y)
             frameInputs = Lockstep.tick(ls, myInput)
             if not frameInputs then break end
         else
-            frameInputs = { [1] = Systems.gatherLocalInput() }
-            Systems.fillAimAngles(frameInputs, world, cursor.x, cursor.y)
+            frameInputs = { [1] = Systems.gatherLocalInput(1, world, cursor.x, cursor.y) }
         end
 
         Systems.runSystems(world, frameInputs, FIXED_DT)

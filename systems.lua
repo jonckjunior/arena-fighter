@@ -50,65 +50,48 @@ function Systems.lifetime(w, FIXED_DT)
 end
 
 ---Returns a raw input table for one player
-function Systems.gatherLocalInput()
-    local inp    = {}
-    inp.up       = love.keyboard.isDown("w")
-    inp.dn       = love.keyboard.isDown("s")
-    inp.lt       = love.keyboard.isDown("a")
-    inp.rt       = love.keyboard.isDown("d")
-    inp.fire     = love.mouse.isDown(1)
-    -- aim angle stays as float for now, quantize later
-    inp.aimAngle = 0
+function Systems.gatherLocalInput(playerIndex, w, mx, my)
+    local inp = {}
+    inp.up    = love.keyboard.isDown("w")
+    inp.dn    = love.keyboard.isDown("s")
+    inp.lt    = love.keyboard.isDown("a")
+    inp.rt    = love.keyboard.isDown("d")
+    inp.fire  = love.mouse.isDown(1)
+
+    if w and mx and my then
+        for id, pidx in pairs(w.playerIndex) do
+            if pidx.index == playerIndex then
+                local pos = w.position[id]
+                if not pos then break end
+                -- find this player's gun muzzle if they have one
+                local muzzleX, muzzleY = pos.x, pos.y -- fallback to player center
+                for gid in pairs(w.equippedBy) do
+                    if w.equippedBy[gid].ownerId == id and w.position[gid] and w.animation[gid] then
+                        local anim = w.animation[gid]
+                        local iw   = anim.frames[anim.current]:getWidth()
+                        -- use last frame's angle to find muzzle, good enough
+                        local a    = anim.angle or 0
+                        muzzleX    = w.position[gid].x + math.cos(a) * (iw / 2)
+                        muzzleY    = w.position[gid].y + math.sin(a) * (iw / 2)
+                        break
+                    end
+                end
+
+                local dx = mx - muzzleX
+                local dy = my - muzzleY
+
+                if dx * dx + dy * dy > 4 then -- minimum 2px distance before updating
+                    inp.aimAngle = math.atan2(dy, dx)
+                else
+                    inp.aimAngle = w.input[id] and w.input[id].aimAngle or 0
+                end
+
+                inp.aimAngle = math.atan2(my - muzzleY, mx - muzzleX)
+                break
+            end
+        end
+    end
     return inp
-end
-
-function Systems.fillAimAngleForPlayer(inp, playerIndex, w, mx, my)
-    for id, pidx in pairs(w.playerIndex) do
-        if pidx.index == playerIndex then
-            local pos = w.position[id]
-            if not pos then break end
-
-            -- find this player's gun muzzle if they have one
-            local muzzleX, muzzleY = pos.x, pos.y -- fallback to player center
-            for gid in pairs(w.equippedBy) do
-                if w.equippedBy[gid].ownerId == id and w.position[gid] and w.animation[gid] then
-                    local anim = w.animation[gid]
-                    local iw   = anim.frames[anim.current]:getWidth()
-                    -- use last frame's angle to find muzzle, good enough
-                    local a    = anim.angle or 0
-                    muzzleX    = w.position[gid].x + math.cos(a) * (iw / 2)
-                    muzzleY    = w.position[gid].y + math.sin(a) * (iw / 2)
-                    break
-                end
-            end
-
-            inp.aimAngle = math.atan2(my - muzzleY, mx - muzzleX)
-            break
-        end
-    end
-end
-
-function Systems.fillAimAngles(frameInputs, w, mx, my)
-    for id, pidx in pairs(w.playerIndex) do
-        local inp = frameInputs[pidx.index]
-        local pos = w.position[id]
-        if inp and pos then
-            local muzzleX, muzzleY = pos.x, pos.y -- fallback to player center
-            for gid in pairs(w.equippedBy) do
-                if w.equippedBy[gid].ownerId == id and w.position[gid] and w.animation[gid] then
-                    local anim = w.animation[gid]
-                    local iw   = anim.frames[anim.current]:getWidth()
-                    -- use last frame's angle to find muzzle, good enough
-                    local a    = anim.angle or 0
-                    muzzleX    = w.position[gid].x + math.cos(a) * (iw / 2)
-                    muzzleY    = w.position[gid].y + math.sin(a) * (iw / 2)
-                    break
-                end
-            end
-
-            inp.aimAngle = math.atan2(my - muzzleY, mx - muzzleX)
-        end
-    end
 end
 
 function Systems.applyInputs(w, frameInputs)
