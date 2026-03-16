@@ -1,5 +1,7 @@
 local World    = require "world"
 local Spawners = require "spawners"
+local C        = require "components"
+local Utils    = require "utils"
 
 local rng      = love.math.newRandomGenerator(12345)
 
@@ -16,7 +18,7 @@ function Systems.gunFollow(w)
         local angle       = inp.aimAngle
         local offset      = 4
         w.position[gid].x = pos.x + math.cos(angle) * offset
-        w.position[gid].y = pos.y + math.sin(angle) * offset + 12 -- hack to move the gun down
+        w.position[gid].y = pos.y + math.sin(angle) * offset + 12 -- hack to move gun down from player center to hand
 
         -- store rotation and vertical flip on animation for draw to use
         if w.animation[gid] then
@@ -49,47 +51,45 @@ function Systems.lifetime(w, FIXED_DT)
     end
 end
 
+local function getPlayerGun(w, playerId)
+    local guns = World.query(w, C.Name.equippedBy, C.Name.position, C.Name.animation)
+    local gunId = Utils.find(guns, function(id)
+        return w.equippedBy[id].ownerId == playerId
+    end)
+    return gunId
+end
+
 ---Returns a raw input table for one player
+---@param playerIndex integer
+---@param w World
+---@param mx number
+---@param my number
+---@return table
 function Systems.gatherLocalInput(playerIndex, w, mx, my)
-    local inp = {}
-    inp.up    = love.keyboard.isDown("w")
-    inp.dn    = love.keyboard.isDown("s")
-    inp.lt    = love.keyboard.isDown("a")
-    inp.rt    = love.keyboard.isDown("d")
-    inp.fire  = love.mouse.isDown(1)
+    local inp     = {
+        up       = love.keyboard.isDown("w"),
+        dn       = love.keyboard.isDown("s"),
+        lt       = love.keyboard.isDown("a"),
+        rt       = love.keyboard.isDown("d"),
+        fire     = love.mouse.isDown(1),
+        aimAngle = 0,
+    }
 
-    if w and mx and my then
-        for id, pidx in pairs(w.playerIndex) do
-            if pidx.index == playerIndex then
-                local pos = w.position[id]
-                if not pos then break end
-                -- find this player's gun muzzle if they have one
-                local muzzleX, muzzleY = pos.x, pos.y -- fallback to player center
-                for gid in pairs(w.equippedBy) do
-                    if w.equippedBy[gid].ownerId == id and w.position[gid] and w.animation[gid] then
-                        local anim = w.animation[gid]
-                        local iw   = anim.frames[anim.current]:getWidth()
-                        -- use last frame's angle to find muzzle, good enough
-                        local a    = anim.angle or 0
-                        muzzleX    = w.position[gid].x + math.cos(a) * (iw / 2)
-                        muzzleY    = w.position[gid].y + math.sin(a) * (iw / 2)
-                        break
-                    end
-                end
+    local players = World.query(w, C.Name.playerIndex, C.Name.position, C.Name.input)
+    local pid     = Utils.find(players, function(id)
+        return w.playerIndex[id].index == playerIndex
+    end)
+    if not pid then return inp end
 
-                local dx = mx - muzzleX
-                local dy = my - muzzleY
+    local gunId = getPlayerGun(w, pid)
+    if not gunId then return inp end
 
-                if dx * dx + dy * dy > 4 then -- minimum 2px distance before updating
-                    inp.aimAngle = math.atan2(dy, dx)
-                else
-                    inp.aimAngle = w.input[id] and w.input[id].aimAngle or 0
-                end
-
-                inp.aimAngle = math.atan2(my - muzzleY, mx - muzzleX)
-                break
-            end
-        end
+    local px, py = w.position[gunId].x, w.position[gunId].y
+    local dx, dy = mx - px, my - py
+    if dx * dx + dy * dy > 5 * 5 then
+        inp.aimAngle = math.atan2(dy, dx)
+    else
+        inp.aimAngle = w.input[pid].aimAngle
     end
     return inp
 end

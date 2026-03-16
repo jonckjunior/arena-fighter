@@ -1,5 +1,41 @@
 local C = {}
 
+--- Component name constants. Use these instead of raw strings with World.query/find
+--- so typos are caught immediately (nil key) rather than silently returning nothing.
+---@class ComponentName
+---@field position    string
+---@field velocity    string
+---@field animation   string
+---@field input       string
+---@field speed       string
+---@field facing      string
+---@field solid       string
+---@field collider    string
+---@field gun         string
+---@field bullet      string
+---@field lifetime    string
+---@field equippedBy  string
+---@field drawLayer   string
+---@field playerIndex string
+---@field hp          string
+C.Name = {
+    position    = "position",
+    velocity    = "velocity",
+    animation   = "animation",
+    input       = "input",
+    speed       = "speed",
+    facing      = "facing",
+    solid       = "solid",
+    collider    = "collider",
+    gun         = "gun",
+    bullet      = "bullet",
+    lifetime    = "lifetime",
+    equippedBy  = "equippedBy",
+    drawLayer   = "drawLayer",
+    playerIndex = "playerIndex",
+    hp          = "hp",
+}
+
 function C.playerIndex(index)
     return { index = index }
 end

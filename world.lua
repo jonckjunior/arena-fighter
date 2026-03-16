@@ -1,3 +1,5 @@
+local C     = require "components"
+
 ---@class World
 ---@field nextId number
 ---@field entities table<integer, boolean>
@@ -19,28 +21,16 @@
 local World = {}
 
 ---Creates a new world with all its components
----@return table
+---@return World
 function World.new()
-    return {
-        nextId      = 1,
-        entities    = {},
-        -- components
-        position    = {}, -- { x, y }
-        velocity    = {}, -- { dx, dy }
-        animation   = {}, -- { frames, current, timer, duration, isPlaying }
-        input       = {}, -- { up, dn, lt, rt, fire, aimAngle}
-        speed       = {}, -- { value }
-        facing      = {}, -- { dir }
-        solid       = {}, -- {}
-        collider    = {}, -- { radius }
-        gun         = {}, -- { cooldown, maxCooldown, damage, bulletSpeed }
-        bullet      = {}, -- { ownerId, damage }
-        lifetime    = {}, -- { ttl }
-        equippedBy  = {}, -- { ownerId }
-        drawLayer   = {}, -- { layer }
-        playerIndex = {}, -- { index }
-        hp          = {}, -- { current, max }
+    local w = {
+        nextId   = 1,
+        entities = {},
     }
+    for _, name in pairs(C.Name) do
+        w[name] = {}
+    end
+    return w
 end
 
 ---Creates a new entity
@@ -55,10 +45,33 @@ end
 
 function World.destroy(w, id)
     w.entities[id] = nil
-    -- Remove from every component table
     for _, t in pairs(w) do
         if type(t) == "table" then t[id] = nil end
     end
+end
+
+--- Returns all entity ids that have every listed component.
+--- Put the rarest component first for best performance.
+---@param w    World
+---@param ...  string  component names (use C.Name constants)
+---@return     integer[]
+function World.query(w, ...)
+    local components = { ... }
+    local result     = {}
+    local first      = w[components[1]]
+    if not first then return result end
+
+    for id in pairs(first) do
+        local match = true
+        for i = 2, #components do
+            if not w[components[i]][id] then
+                match = false
+                break
+            end
+        end
+        if match then result[#result + 1] = id end
+    end
+    return result
 end
 
 return World
