@@ -296,8 +296,8 @@ function Systems.draw(w)
         local ih   = img:getHeight()
         love.graphics.draw(
             img,
-            Utils.round(pos.x),
-            Utils.round(pos.y),
+            pos.x,
+            pos.y,
             anim.angle or 0,
             dir,
             anim.flipY or 1,
@@ -321,7 +321,7 @@ end
 function Systems.drawHpBars(w)
     local BAR_W  = 24
     local BAR_H  = 3
-    local OFFSET = 14 -- pixels below entity center
+    local OFFSET = -14 -- pixels below entity center
 
 
     local idsToUpdate = World.query(w, C.Name.hp, C.Name.position)
@@ -420,11 +420,11 @@ end
 
 function Systems.runSystems(w, frameInputs, FIXED_DT)
     Systems.applyInputs(w, frameInputs)
+    Systems.inputToVelocity(w, FIXED_DT)
+    Systems.applyVelocity(w, FIXED_DT)
     Systems.gunCooldown(w)
     Systems.gunFollow(w)
     Systems.firing(w)
-    Systems.inputToVelocity(w, FIXED_DT)
-    Systems.applyVelocity(w, FIXED_DT)
     Systems.bulletPlayerCollision(w)
     Systems.bulletTerrainCollision(w)
     Systems.death(w)

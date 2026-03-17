@@ -2,6 +2,8 @@ local World       = require "world"
 local Systems     = require "systems"
 local Spawners    = require "spawners"
 local Lockstep    = require "lockstep"
+local Utils       = require "utils"
+local C           = require "components"
 
 local Game        = {}
 
@@ -31,8 +33,19 @@ local roundWinner = nil
 local waitTimer   = 0.1
 
 local cursor      = { sprite = nil, x = 0, y = 0 }
+local camera      = { x = 0, y = 0 }
 
 -- ── Private ───────────────────────────────────────────────────────────────────
+
+local function updateCamera(w, targetIndex)
+    local pid = Utils.find(
+        World.query(w, C.Name.playerIndex, C.Name.position),
+        function(id) return w.playerIndex[id].index == targetIndex end
+    )
+    if not pid then return end
+    camera.x = w.position[pid].x - 240 -- 480/2
+    camera.y = w.position[pid].y - 135 -- 270/2
+end
 
 local function initializeWorld()
     local w = World.new()
@@ -70,8 +83,8 @@ end
 function Game.update(dt)
     dt = math.min(dt, 0.1)
 
-    cursor.x = love.mouse.getX() / SCALE_FACTOR
-    cursor.y = love.mouse.getY() / SCALE_FACTOR
+    cursor.x = love.mouse.getX() / SCALE_FACTOR + camera.x
+    cursor.y = love.mouse.getY() / SCALE_FACTOR + camera.y
 
     if gameState == "waiting" then
         waitTimer = waitTimer - dt
@@ -103,6 +116,7 @@ function Game.update(dt)
         end
 
         Systems.runSystems(world, frameInputs, FIXED_DT)
+        updateCamera(world, myIndex)
 
         local result = Systems.checkWin(world)
         if result then
@@ -121,12 +135,17 @@ function Game.draw(canvas)
 
     love.graphics.setCanvas(canvas)
     love.graphics.clear(0.2, 0.2, 0.2)
+    love.graphics.push()
+    love.graphics.translate(-camera.x, -camera.y)
     Systems.draw(world)
     Systems.drawHpBars(world)
+    love.graphics.pop()
     if cursor.sprite then
-        local hw = cursor.sprite:getWidth() / 2
-        local hh = cursor.sprite:getHeight() / 2
-        love.graphics.draw(cursor.sprite, cursor.x, cursor.y, 0, 1, 1, hw, hh)
+        local sx = love.mouse.getX() / SCALE_FACTOR
+        local sy = love.mouse.getY() / SCALE_FACTOR
+        love.graphics.draw(cursor.sprite, sx, sy, 0, 1, 1,
+            Utils.round(cursor.sprite:getWidth() / 2),
+            Utils.round(cursor.sprite:getHeight() / 2))
     end
     love.graphics.setCanvas()
 

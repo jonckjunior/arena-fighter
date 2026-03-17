@@ -9,7 +9,7 @@ Spawners.GunDefs = {
         damage      = 20,
         bulletSpeed = 600,
         bulletCount = 1,
-        spread      = 0.1,
+        spread      = 0,
         sprite      = "Assets/Sprites/Weapons/Tiles/tile_0000.png",
     },
     ak47 = {
