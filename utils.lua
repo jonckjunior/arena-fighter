@@ -11,4 +11,11 @@ function Utils.find(list, predicate)
     end
 end
 
+---Returns the number rounded to the closes integer
+---@param num number
+---@return integer
+function Utils.round(num)
+    return math.floor(num + 0.5)
+end
+
 return Utils

@@ -39,7 +39,7 @@ local function initializeWorld()
     Spawners.player(w, 100, 100, 1)
     Spawners.player(w, 300, 100, 2)
     for id, pidx in pairs(w.playerIndex) do
-        Spawners.gun(w, id, "ak47")
+        Spawners.gun(w, id, "pistol")
     end
     Spawners.barrel(w, 200, 150)
     Spawners.barrel(w, 216, 150)

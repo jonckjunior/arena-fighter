@@ -154,8 +154,8 @@ function Systems.inputToVelocity(w, dt)
 
         -- Normalize diagonal movement
         if targetDx ~= 0 and targetDy ~= 0 then
-            targetDx = targetDx * 1
-            targetDy = targetDy * 1
+            targetDx = targetDx * 0.7071
+            targetDy = targetDy * 0.7071
         end
 
         w.velocity[id].dx = targetDx * w.speed[id].value
@@ -296,13 +296,13 @@ function Systems.draw(w)
         local ih   = img:getHeight()
         love.graphics.draw(
             img,
-            math.floor(pos.x + 0.5),
-            math.floor(pos.y + 0.5),
+            Utils.round(pos.x),
+            Utils.round(pos.y),
             anim.angle or 0,
             dir,
             anim.flipY or 1,
-            iw / 2,
-            ih / 2
+            Utils.round(iw / 2),
+            Utils.round(ih / 2)
         )
     end
 
