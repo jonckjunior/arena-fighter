@@ -9,28 +9,28 @@ local rng      = love.math.newRandomGenerator(12345)
 local Systems  = {}
 
 function Systems.gunFollow(w)
-    for gid in pairs(w.equippedBy) do
+    local guns = World.query(w, C.Name.equippedBy, C.Name.position, C.Name.animation)
+    for _, gid in ipairs(guns) do
         local ownerId = w.equippedBy[gid].ownerId
         local pos     = w.position[ownerId]
         local inp     = w.input[ownerId]
         if not pos or not inp then goto continue end
 
-        local angle       = inp.aimAngle
-        local offset      = 4
-        w.position[gid].x = pos.x + math.cos(angle) * offset
-        w.position[gid].y = pos.y + math.sin(angle) * offset + 12 -- hack to move gun down from player center to hand
+        local angle            = inp.aimAngle
+        local offset           = 4
+        w.position[gid].x      = pos.x + math.cos(angle) * offset
+        w.position[gid].y      = pos.y + math.sin(angle) * offset + 12
 
         -- store rotation and vertical flip on animation for draw to use
-        if w.animation[gid] then
-            w.animation[gid].angle = angle
-            w.animation[gid].flipY = math.cos(angle) < 0 and -1 or 1
-        end
+        w.animation[gid].angle = angle
+        w.animation[gid].flipY = math.cos(angle) < 0 and -1 or 1
         ::continue::
     end
 end
 
 function Systems.gunCooldown(w)
-    for id, gun in pairs(w.gun) do
+    for _, id in ipairs(World.query(w, C.Name.gun)) do
+        local gun = w.gun[id]
         if gun.cooldown > 0 then
             gun.cooldown = gun.cooldown - 1
         end
@@ -39,7 +39,8 @@ end
 
 function Systems.lifetime(w, FIXED_DT)
     local toDestroy = {}
-    for id, lt in pairs(w.lifetime) do
+    for _, id in ipairs(World.query(w, C.Name.lifetime)) do
+        local lt = w.lifetime[id]
         lt.ttl = lt.ttl - FIXED_DT
         if lt.ttl <= 0 then
             toDestroy[#toDestroy + 1] = id
@@ -95,7 +96,8 @@ function Systems.gatherLocalInput(playerIndex, w, mx, my)
 end
 
 function Systems.applyInputs(w, frameInputs)
-    for id, pidx in pairs(w.playerIndex) do
+    for _, id in ipairs(World.query(w, C.Name.playerIndex)) do
+        local pidx = w.playerIndex[id]
         local inp = frameInputs[pidx.index]
         if inp and w.input[id] then
             w.input[id].up       = inp.up
@@ -109,15 +111,16 @@ function Systems.applyInputs(w, frameInputs)
 end
 
 function Systems.firing(w)
-    for gid, gun in pairs(w.gun) do
-        local eq = w.equippedBy[gid]
-        if not eq then goto continue end
+    local guns = World.query(w, C.Name.gun, C.Name.equippedBy, C.Name.position, C.Name.animation)
+    for _, gid in ipairs(guns) do
+        local gun     = w.gun[gid]
+        local eq      = w.equippedBy[gid]
+        local gunPos  = w.position[gid]
+        local anim    = w.animation[gid]
 
         local ownerId = eq.ownerId
         local inp     = w.input[ownerId]
-        local gunPos  = w.position[gid]
-        local anim    = w.animation[gid]
-        if not inp or not gunPos or not anim then goto continue end
+        if not inp then goto continue end
 
         if inp.fire and gun.cooldown == 0 then
             local angle   = inp.aimAngle
@@ -253,7 +256,8 @@ end
 ---@param w World
 ---@param dt number
 function Systems.animation(w, dt)
-    for id, anim in pairs(w.animation) do
+    for _, id in ipairs(World.query(w, C.Name.animation)) do
+        local anim = w.animation[id]
         if anim.isPlaying then
             anim.timer = anim.timer + dt
             if anim.timer >= anim.duration then
@@ -303,14 +307,12 @@ function Systems.draw(w)
     end
 
     if DEBUG then
-        for id in pairs(w.collider) do
-            if w.position[id] then
-                local pos = w.position[id]
-                local r   = w.collider[id].radius
-                love.graphics.setColor(1, 0, 0, 0.5)
-                love.graphics.circle("fill", pos.x, pos.y, r)
-                love.graphics.setColor(1, 1, 1)
-            end
+        for _, id in ipairs(World.query(w, C.Name.position, C.Name.collider)) do
+            local pos = w.position[id]
+            local r   = w.collider[id].radius
+            love.graphics.setColor(1, 0, 0, 0.5)
+            love.graphics.circle("fill", pos.x, pos.y, r)
+            love.graphics.setColor(1, 1, 1)
         end
     end
 end
@@ -321,8 +323,10 @@ function Systems.drawHpBars(w)
     local BAR_H  = 3
     local OFFSET = 14 -- pixels below entity center
 
-    for id, hp in pairs(w.hp) do
-        if not w.position[id] then goto continue end
+
+    local idsToUpdate = World.query(w, C.Name.hp, C.Name.position)
+    for _, id in ipairs(idsToUpdate) do
+        local hp   = w.hp[id]
 
         local x    = math.floor(w.position[id].x + 0.5)
         local y    = math.floor(w.position[id].y + 0.5)
@@ -342,8 +346,6 @@ function Systems.drawHpBars(w)
 
         -- reset color
         love.graphics.setColor(1, 1, 1)
-
-        ::continue::
     end
 end
 
@@ -382,15 +384,22 @@ function Systems.collisionResolution(w)
     end
 end
 
+---Destroy entities with 0 hp and their guns (if any)
 ---@param w World
 function Systems.death(w)
     local toDestroy = {}
-    for id, hp in pairs(w.hp) do
-        if hp.current <= 0 then
+    for _, id in ipairs(World.query(w, C.Name.hp)) do
+        if w.hp[id].current <= 0 then
             toDestroy[#toDestroy + 1] = id
         end
     end
     for _, id in ipairs(toDestroy) do
+        -- destroy any guns owned by this entity
+        for _, gid in ipairs(World.query(w, C.Name.equippedBy)) do
+            if w.equippedBy[gid].ownerId == id then
+                World.destroy(w, gid)
+            end
+        end
         World.destroy(w, id)
     end
 end
@@ -403,16 +412,10 @@ end
 ---@param w World
 ---@return {winner: integer|nil}|nil
 function Systems.checkWin(w)
-    local alive = {}
-    for id in pairs(w.playerIndex) do
-        if w.hp[id] then -- hp present means still alive
-            alive[#alive + 1] = id
-        end
-    end
-
+    local alive = World.query(w, C.Name.playerIndex, C.Name.hp)
     if #alive == 1 then return { winner = alive[1] } end
     if #alive == 0 then return { winner = nil } end
-    return nil -- 2+ players still alive, round continues
+    return nil
 end
 
 function Systems.runSystems(w, frameInputs, FIXED_DT)
