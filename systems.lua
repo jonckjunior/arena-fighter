@@ -139,13 +139,12 @@ function Systems.firing(w)
     end
 end
 
--- Translate input → velocity
+---Reads the input for each entity and apply it's velocity to its position. It also alters the animation state
 ---@param w World
 ---@param dt number
 function Systems.inputToVelocity(w, dt)
-    for id in pairs(w.input) do
-        if not w.velocity[id] or not w.speed[id] then goto continue end
-
+    local idsToUpdate = World.query(w, C.Name.input, C.Name.speed, C.Name.velocity, C.Name.position)
+    for _, id in ipairs(idsToUpdate) do
         local inp      = w.input[id]
         local targetDx = (inp.rt and 1 or 0) - (inp.lt and 1 or 0)
         local targetDy = (inp.dn and 1 or 0) - (inp.up and 1 or 0)
@@ -161,42 +160,34 @@ function Systems.inputToVelocity(w, dt)
 
         w.facing[id].dir = math.cos(inp.aimAngle) >= 0 and 1 or -1
 
-        -- Apply movement
-        if w.position[id] then
-            w.position[id].x = w.position[id].x + w.velocity[id].dx * dt
-            w.position[id].y = w.position[id].y + w.velocity[id].dy * dt
-        end
+        w.position[id].x = w.position[id].x + w.velocity[id].dx * dt
+        w.position[id].y = w.position[id].y + w.velocity[id].dy * dt
 
         if w.animation[id] then
             w.animation[id].isPlaying = (targetDx ~= 0 or targetDy ~= 0)
         end
-        ::continue::
     end
 end
 
+---Applies the velocity update to position on entities without input
+---@param w World
+---@param dt number
 function Systems.applyVelocity(w, dt)
-    for id in pairs(w.velocity) do
-        if w.input[id] or not w.position[id] then goto continue end
-
-        w.position[id].x = w.position[id].x + w.velocity[id].dx * dt
-        w.position[id].y = w.position[id].y + w.velocity[id].dy * dt
-        ::continue::
+    local idsToUpdate = World.query(w, C.Name.velocity, C.Name.position)
+    for _, id in ipairs(idsToUpdate) do
+        if not w.input[id] then
+            w.position[id].x = w.position[id].x + w.velocity[id].dx * dt
+            w.position[id].y = w.position[id].y + w.velocity[id].dy * dt
+        end
     end
 end
 
 function Systems.bulletTerrainCollision(w)
-    local solids = {}
-    for id in pairs(w.solid) do
-        if w.position[id] and w.collider[id] then
-            solids[#solids + 1] = id
-        end
-    end
-
+    local solids = World.query(w, C.Name.solid, C.Name.position, C.Name.collider)
     local toDestroy = {}
 
-    for bid in pairs(w.bullet) do
-        if not w.position[bid] or not w.collider[bid] then goto continue end
-
+    local bullets = World.query(w, C.Name.bullet, C.Name.position, C.Name.collider)
+    for _, bid in ipairs(bullets) do
         for _, sid in ipairs(solids) do
             local dx   = w.position[bid].x - w.position[sid].x
             local dy   = w.position[bid].y - w.position[sid].y
@@ -207,7 +198,6 @@ function Systems.bulletTerrainCollision(w)
                 break -- bullet is gone, no point checking remaining solids
             end
         end
-        ::continue::
     end
 
     for _, bid in ipairs(toDestroy) do
@@ -219,18 +209,11 @@ end
 function Systems.bulletPlayerCollision(w)
     -- Collect damageable players once — stable list, iteration order irrelevant
     -- since we collect all hits before applying any damage or destroys.
-    local players = {}
-    for pid in pairs(w.hp) do
-        if w.position[pid] and w.collider[pid] then
-            players[#players + 1] = pid
-        end
-    end
-
+    local players = World.query(w, C.Name.hp, C.Name.position, C.Name.collider)
     local toDestroy = {}
 
-    for bid in pairs(w.bullet) do
-        if not w.position[bid] or not w.collider[bid] then goto continueBullet end
-
+    local bullets = World.query(w, C.Name.bullet, C.Name.position, C.Name.collider)
+    for _, bid in ipairs(bullets) do
         local bullet     = w.bullet[bid]
         local bullRadius = w.collider[bid].radius
 
@@ -259,8 +242,6 @@ function Systems.bulletPlayerCollision(w)
             end
             toDestroy[#toDestroy + 1] = bid
         end
-
-        ::continueBullet::
     end
 
     for _, bid in ipairs(toDestroy) do
@@ -290,13 +271,7 @@ end
 ---@param w World
 function Systems.draw(w)
     -- Collect entities with animation and position, sorted by y-coordinate
-    local drawables = {}
-    for id in pairs(w.animation) do
-        if w.position[id] then
-            drawables[#drawables + 1] = id
-        end
-    end
-
+    local drawables = World.query(w, C.Name.animation, C.Name.position)
     -- Sort by y-coordinate (ascending) for correct depth ordering
     table.sort(drawables, function(a, b)
         local la = w.drawLayer[a] and w.drawLayer[a].layer or 0
@@ -376,17 +351,10 @@ end
 ---@param w World
 function Systems.collisionResolution(w)
     -- Collect solids once per frame
-    local solids = {}
-    for id in pairs(w.solid) do
-        if w.position[id] and w.collider[id] then
-            solids[#solids + 1] = id
-        end
-    end
-
+    local solids = World.query(w, C.Name.solid, C.Name.position, C.Name.collider)
     -- Only move entities that have velocity (players, not barrels)
-    for id in pairs(w.velocity) do
-        if not w.position[id] or not w.collider[id] then goto continue end
-
+    local idsToUpdate = World.query(w, C.Name.velocity, C.Name.position, C.Name.collider)
+    for _, id in ipairs(idsToUpdate) do
         for _, sid in ipairs(solids) do
             if sid == id then goto nextSolid end -- skip self
 
@@ -411,7 +379,6 @@ function Systems.collisionResolution(w)
 
             ::nextSolid::
         end
-        ::continue::
     end
 end
 
