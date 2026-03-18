@@ -419,8 +419,9 @@ end
 
 ---@param w World
 ---@return boolean
-function Systems.isGameOver(w)
-    return #World.query(w, C.Name.playerIndex, C.Name.hp) <= 1
+function Systems.isRoundOver(w)
+    local alive = World.query(w, C.Name.playerIndex, C.Name.hp)
+    return #alive <= 1
 end
 
 --- Check if the round is over. Returns the index of the winner or -1 if draw

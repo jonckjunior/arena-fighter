@@ -1,8 +1,9 @@
-SCALE_FACTOR = 3
+SCALE_FACTOR      = 3
 
-local Game   = require "game"
+local Game        = require "game"
 local canvas
-local DEBUG  = false
+local DEBUG       = false
+local keysPressed = {}
 
 function love.load()
     love.graphics.setDefaultFilter("nearest", "nearest")
@@ -18,7 +19,8 @@ function love.load()
 end
 
 function love.update(dt)
-    Game.update(dt)
+    Game.update(dt, keysPressed)
+    keysPressed = {}
 end
 
 function love.draw()
@@ -28,5 +30,5 @@ end
 function love.keypressed(key)
     if key == "f1" then DEBUG = not DEBUG end
     if key == "escape" then love.event.quit() end
-    Game.keypressed(key)
+    keysPressed[key] = true
 end

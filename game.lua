@@ -24,21 +24,23 @@ local network  = {}
 ---@class state
 ---@field world World|nil
 ---@field accumulator number
----@field gameState "waiting"|"playing"|"roundOver"
+---@field gameState "waiting"|"playing"|"roundOver"|"matchOver"
 ---@field roundWinner nil
 ---@field matchWinner nil
 ---@field waitTimer number
 ---@field scores table<integer,integer>
 ---@field roundNumber integer
 local state    = {
-    world       = nil,
-    accumulator = 0,
-    gameState   = "waiting",
-    roundWinner = nil,
-    matchWinner = nil,
-    waitTimer   = 0,
-    scores      = {},
-    roundNumber = 0,
+    world         = nil,
+    accumulator   = 0,
+    gameState     = "waiting",
+    roundWinner   = nil,
+    matchWinner   = nil,
+    waitTimer     = 0,
+    scores        = {},
+    roundNumber   = 0,
+    DRAW          = -1,
+    ROUNDS_TO_WIN = 3,
 }
 
 -- ── Camera / Cursor ───────────────────────────────────────────────────────────
@@ -108,7 +110,17 @@ local function startRound()
     state.world       = initializeWorld()
     state.gameState   = "waiting"
     state.roundWinner = nil
-    state.waitTimer   = 0.1
+    state.waitTimer   = 3.0
+end
+
+local function startMatch()
+    state.scores = {}
+    for i = 1, network.NUM_PLAYERS do
+        state.scores[i] = 0
+    end
+    state.roundNumber = 0
+    state.matchWinner = nil
+    startRound()
 end
 
 local function tickSimulation()
@@ -122,9 +134,20 @@ local function tickSimulation()
     end
 
     Systems.runSystems(state.world, frameInputs, FIXED_DT)
-    if Systems.isGameOver(state.world) then
+    if Systems.isRoundOver(state.world) then
         state.gameState   = "roundOver"
         state.roundWinner = Systems.getRoundWinner(state.world)
+
+        if state.roundWinner ~= state.DRAW then
+            state.scores[state.roundWinner] = state.scores[state.roundWinner] + 1
+            if state.scores[state.roundWinner] >= state.ROUNDS_TO_WIN then
+                state.matchWinner = state.roundWinner
+                state.gameState = "matchOver"
+            else
+                state.gameState = "roundOver"
+                state.waitTimer = 2.0
+            end
+        end
     end
 end
 
@@ -153,7 +176,7 @@ local function drawOverlays()
         love.graphics.setColor(1, 1, 1)
     elseif state.gameState == "roundOver" then
         local text
-        if state.roundWinner ~= -1 then
+        if state.roundWinner ~= state.DRAW then
             local pidx = state.world.playerIndex[state.roundWinner]
             text = pidx and ("Player " .. pidx.index .. " wins!") or "Winner!"
         else
@@ -163,8 +186,11 @@ local function drawOverlays()
         love.graphics.rectangle("fill", 0, 0, sw, sh)
         love.graphics.setColor(1, 1, 1)
         love.graphics.printf(text, 0, sh / 2 - 16, sw, "center")
-        love.graphics.printf("Press R to play again", 0, sh / 2 + 8, sw, "center")
+    elseif state.gameState == "matchOver" then
+        love.graphics.setColor(0, 0, 0, 0.6)
+        love.graphics.rectangle("fill", 0, 0, sw, sh)
         love.graphics.setColor(1, 1, 1)
+        love.graphics.printf("Press R to play again", 0, sh / 2 + 8, sw, "center")
     end
 end
 
@@ -180,10 +206,10 @@ function Game.load()
         Lockstep.bootstrap(network.ls)
     end
 
-    startRound()
+    startMatch()
 end
 
-function Game.update(dt)
+function Game.update(dt, keysPressed)
     dt = math.min(dt, 0.1)
 
     cursor.x = love.mouse.getX() / SCALE_FACTOR + camera.x
@@ -205,6 +231,13 @@ function Game.update(dt)
             state.accumulator = state.accumulator - FIXED_DT
         end
         updateCamera(state.world, network.networkIndex, cursor.x, cursor.y, dt)
+    elseif state.gameState == "roundOver" then
+        state.waitTimer = state.waitTimer - dt
+        if state.waitTimer <= 0 then startRound() end
+    elseif state.gameState == "matchOver" then
+        if keysPressed["r"] then
+            startMatch()
+        end
     end
 end
 
@@ -227,12 +260,6 @@ function Game.draw(canvas)
     end
 
     drawOverlays()
-end
-
-function Game.keypressed(key)
-    if key == "r" and state.gameState == "roundOver" then
-        startRound()
-    end
 end
 
 return Game
