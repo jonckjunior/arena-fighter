@@ -1,0 +1,8 @@
+{
+    "runtime": {
+        "version": "LuaJIT"
+    },
+    "workspace": {
+        "library": ["/Users/jonck/Downloads/love2d-main/library"]
+    }
+}

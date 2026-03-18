@@ -1,43 +1,68 @@
-local World       = require "world"
-local Systems     = require "systems"
-local Spawners    = require "spawners"
-local Lockstep    = require "lockstep"
-local Utils       = require "utils"
-local C           = require "components"
+local World    = require "world"
+local Systems  = require "systems"
+local Spawners = require "spawners"
+local Lockstep = require "lockstep"
+local Utils    = require "utils"
+local C        = require "components"
 
-local Game        = {}
+local Game     = {}
+local FIXED_DT = 1 / 60
 
 -- ── Network config ────────────────────────────────────────────────────────────
 
-Game.USE_NETWORK  = false
-Game.RELAY_HOST   = "localhost"
-Game.RELAY_PORT   = 22122
-Game.NUM_PLAYERS  = 2
-Game.INPUT_DELAY  = 10
+---@class network
+---@field USE_NETWORK boolean
+---@field RELAY_HOST nil
+---@field RELAY_PORT integer
+---@field NUM_PLAYERS integer
+---@field INPUT_DELAY integer
+---@field myIndex integer
+---@field ls LockstepState|nil
+local network  = {
+    USE_NETWORK = false,
+    RELAY_HOST  = "localhost",
+    RELAY_PORT  = 22122,
+    NUM_PLAYERS = 2,
+    INPUT_DELAY = 10,
+    myIndex     = 1,
+    ls          = nil,
+}
 
 -- ── State ─────────────────────────────────────────────────────────────────────
+---@class state
+---@field world World|nil
+---@field accumulator number
+---@field gameState "waiting"|"playing"|"roundOver"
+---@field roundWinner nil
+---@field matchWinner nil
+---@field waitTimer number
+---@field scores table<integer,integer>
+---@field roundNumber integer
+local state    = {
+    world       = nil,
+    accumulator = 0,
+    gameState   = "waiting",
+    roundWinner = nil,
+    matchWinner = nil,
+    waitTimer   = 0,
+    scores      = {},
+    roundNumber = 0,
+}
 
-local FIXED_DT    = 1 / 60
+---@class cursor
+---@field sprite love.Image|nil
+---@field x number
+---@field y number
+local cursor   = { sprite = nil, x = 0, y = 0 }
 
-local world
-local accumulator = 0
-
-local myIndex     = 1
----@type LockstepState
-local ls          = nil
-
----@type "waiting"|"playing"|"roundOver"
-local gameState   = "waiting"
----@type integer|false|nil
-local roundWinner = nil
-local waitTimer   = 0.1
-
-local cursor      = { sprite = nil, x = 0, y = 0 }
-local camera      = { x = 0, y = 0, look_speed = 8, look_ahead = 0.2 }
+---@class camera
+---@field x number
+---@field y number
+---@field look_speed number
+---@field look_ahead number
+local camera   = { x = 0, y = 0, look_speed = 8, look_ahead = 0.2 }
 
 -- ── Private ───────────────────────────────────────────────────────────────────
-
-
 local function updateCamera(w, targetIndex, cx, cy, dt)
     local pid = Utils.find(
         World.query(w, C.Name.playerIndex, C.Name.position),
@@ -68,10 +93,10 @@ local function initializeWorld()
 end
 
 local function startRound()
-    world       = initializeWorld()
-    gameState   = "waiting"
-    roundWinner = nil
-    waitTimer   = 0.1
+    state.world       = initializeWorld()
+    state.gameState   = "waiting"
+    state.roundWinner = nil
+    state.waitTimer   = 0.1
 end
 
 -- ── Public API ────────────────────────────────────────────────────────────────
@@ -80,9 +105,9 @@ function Game.load()
     cursor.sprite = love.graphics.newImage("Assets/Sprites/Weapons/Tiles/tile_0024.png")
 
     if Game.USE_NETWORK then
-        ls      = Lockstep.connect(Game.RELAY_HOST, Game.RELAY_PORT, Game.NUM_PLAYERS, Game.INPUT_DELAY)
-        myIndex = ls.myIndex
-        Lockstep.bootstrap(ls)
+        network.ls      = Lockstep.connect(Game.RELAY_HOST, Game.RELAY_PORT, Game.NUM_PLAYERS, Game.INPUT_DELAY)
+        network.myIndex = network.ls.myIndex
+        Lockstep.bootstrap(network.ls)
     end
 
     startRound()
@@ -94,45 +119,45 @@ function Game.update(dt)
     cursor.x = love.mouse.getX() / SCALE_FACTOR + camera.x
     cursor.y = love.mouse.getY() / SCALE_FACTOR + camera.y
 
-    if gameState == "waiting" then
-        waitTimer = waitTimer - dt
-        if waitTimer <= 0 then
-            gameState = "playing"
+    if state.gameState == "waiting" then
+        state.waitTimer = state.waitTimer - dt
+        if state.waitTimer <= 0 then
+            state.gameState = "playing"
         end
         return
     end
 
     if Game.USE_NETWORK then
-        Lockstep.receive(ls)
+        Lockstep.receive(network.ls)
     end
 
-    accumulator = accumulator + dt
+    state.accumulator = state.accumulator + dt
 
-    while accumulator >= FIXED_DT do
-        if gameState ~= "playing" then
-            accumulator = accumulator - FIXED_DT
+    while state.accumulator >= FIXED_DT do
+        if state.gameState ~= "playing" then
+            state.accumulator = state.accumulator - FIXED_DT
             goto continueAccumulator
         end
 
         local frameInputs
         if Game.USE_NETWORK then
-            local myInput = Systems.gatherLocalInput(myIndex, world, cursor.x, cursor.y)
-            frameInputs = Lockstep.tick(ls, myInput)
+            local myInput = Systems.gatherLocalInput(network.myIndex, state.world, cursor.x, cursor.y)
+            frameInputs = Lockstep.tick(network.ls, myInput)
             if not frameInputs then break end
         else
-            frameInputs = { [1] = Systems.gatherLocalInput(1, world, cursor.x, cursor.y) }
+            frameInputs = { [1] = Systems.gatherLocalInput(1, state.world, cursor.x, cursor.y) }
         end
 
-        Systems.runSystems(world, frameInputs, FIXED_DT)
-        updateCamera(world, myIndex, cursor.x, cursor.y, dt)
+        Systems.runSystems(state.world, frameInputs, FIXED_DT)
+        updateCamera(state.world, network.myIndex, cursor.x, cursor.y, dt)
 
-        local result = Systems.checkWin(world)
+        local result = Systems.checkWin(state.world)
         if result then
-            gameState   = "roundOver"
-            roundWinner = result.winner or false
+            state.gameState   = "roundOver"
+            state.roundWinner = result.winner or false
         end
 
-        accumulator = accumulator - FIXED_DT
+        state.accumulator = state.accumulator - FIXED_DT
         ::continueAccumulator::
     end
 end
@@ -145,8 +170,8 @@ function Game.draw(canvas)
     love.graphics.clear(0.2, 0.2, 0.2)
     love.graphics.push()
     love.graphics.translate(-camera.x, -camera.y)
-    Systems.draw(world)
-    Systems.drawHpBars(world)
+    Systems.draw(state.world)
+    Systems.drawHpBars(state.world)
     love.graphics.pop()
     if cursor.sprite then
         local sx = love.mouse.getX() / SCALE_FACTOR
@@ -161,20 +186,20 @@ function Game.draw(canvas)
 
     -- Network debug HUD
     if Game.USE_NETWORK then
-        local stall = ls.stalledFrames > 0 and "  STALLED x" .. ls.stalledFrames or ""
-        love.graphics.print("P" .. myIndex .. "  f=" .. ls.frame .. stall, 4, 4)
+        local stall = network.ls.stalledFrames > 0 and "  STALLED x" .. network.ls.stalledFrames or ""
+        love.graphics.print("P" .. network.myIndex .. "  f=" .. network.ls.frame .. stall, 4, 4)
     end
 
     -- Overlays (drawn at screen resolution so text isn't pixelated)
-    if gameState == "waiting" then
-        local secs = math.ceil(waitTimer)
+    if state.gameState == "waiting" then
+        local secs = math.ceil(state.waitTimer)
         love.graphics.setColor(1, 1, 1)
         love.graphics.printf(secs > 0 and tostring(secs) or "Fight!", 0, sh / 2 - 8, sw, "center")
         love.graphics.setColor(1, 1, 1)
-    elseif gameState == "roundOver" then
+    elseif state.gameState == "roundOver" then
         local text
-        if roundWinner then
-            local pidx = world.playerIndex[roundWinner]
+        if state.roundWinner then
+            local pidx = state.world.playerIndex[state.roundWinner]
             text = pidx and ("Player " .. pidx.index .. " wins!") or "Winner!"
         else
             text = "Draw!"
@@ -189,7 +214,7 @@ function Game.draw(canvas)
 end
 
 function Game.keypressed(key)
-    if key == "r" and gameState == "roundOver" then
+    if key == "r" and state.gameState == "roundOver" then
         startRound()
     end
 end

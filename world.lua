@@ -5,7 +5,7 @@ local C     = require "components"
 ---@field entities table<integer, boolean>
 ---@field position table<integer, {x: number, y: number}>
 ---@field velocity table<integer, {dx: number, dy: number}>
----@field animation table<integer, {frames: table, current: number, timer: number, duration: number, isPlaying: boolean, angle: number | nil, flipY: boolean | nil}>
+---@field animation table<integer, {frames: table, current: number, timer: number, duration: number, isPlaying: boolean, angle: number | nil, flipY: integer | nil}>
 ---@field input table<integer, {up: boolean, dn: boolean, lt: boolean, rt: boolean, fire: boolean, aimAngle: number}>
 ---@field speed table<integer, {value: number}>
 ---@field facing table<integer, {dir: number}>
