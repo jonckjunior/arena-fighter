@@ -90,6 +90,7 @@ local function packInput(playerIndex, frame, inp)
     if inp.lt then buttons = buttons + 4 end
     if inp.rt then buttons = buttons + 8 end
     if inp.fire then buttons = buttons + 16 end
+    if inp.restart then buttons = buttons + 32 end
 
     local f = frame % 65536
     local a = math.floor(((inp.aimAngle + math.pi) / (2 * math.pi)) * 65535 + 0.5) % 65536
@@ -140,6 +141,7 @@ local function unpackInput(data)
         lt       = math.floor(buttons / 4) % 2 >= 1,
         rt       = math.floor(buttons / 8) % 2 >= 1,
         fire     = math.floor(buttons / 16) % 2 >= 1,
+        restart  = math.floor(buttons / 32) % 2 >= 1,
         aimAngle = (angle / 65535) * (2 * math.pi) - math.pi,
     }
 end
