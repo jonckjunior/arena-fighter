@@ -122,10 +122,9 @@ local function tickSimulation()
     end
 
     Systems.runSystems(state.world, frameInputs, FIXED_DT)
-    local result = Systems.checkWin(state.world)
-    if result then
+    if Systems.isGameOver(state.world) then
         state.gameState   = "roundOver"
-        state.roundWinner = result.winner or false
+        state.roundWinner = Systems.getRoundWinner(state.world)
     end
 end
 
@@ -154,7 +153,7 @@ local function drawOverlays()
         love.graphics.setColor(1, 1, 1)
     elseif state.gameState == "roundOver" then
         local text
-        if state.roundWinner then
+        if state.roundWinner ~= -1 then
             local pidx = state.world.playerIndex[state.roundWinner]
             text = pidx and ("Player " .. pidx.index .. " wins!") or "Winner!"
         else

@@ -417,18 +417,22 @@ function Systems.death(w)
     end
 end
 
---- Check if the round is over after death has run.
---- Returns:
----   nil               — round still in progress
----   { winner = id }   — one player remains
----   { winner = nil }  — everyone died on the same frame (draw)
 ---@param w World
----@return {winner: integer|nil}|nil
-function Systems.checkWin(w)
+---@return boolean
+function Systems.isGameOver(w)
+    return #World.query(w, C.Name.playerIndex, C.Name.hp) <= 1
+end
+
+--- Check if the round is over. Returns the index of the winner or -1 if draw
+---@param w World
+---@return integer
+function Systems.getRoundWinner(w)
     local alive = World.query(w, C.Name.playerIndex, C.Name.hp)
-    if #alive == 1 then return { winner = alive[1] } end
-    if #alive == 0 then return { winner = nil } end
-    return nil
+    if #alive == 1 then
+        return alive[1]
+    else
+        return -1 -- draw
+    end
 end
 
 function Systems.runSystems(w, frameInputs, FIXED_DT)
