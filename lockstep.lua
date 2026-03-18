@@ -211,11 +211,12 @@ end
 ---@return table|nil
 function Lockstep.tick(ls, myInput)
     local targetFrame                       = ls.frame + ls.inputDelay
+    local quantized                         = Lockstep.quantizeInput(myInput)
 
     -- Store our own input directly — the relay only echoes to other clients
     -- so we will never receive our own packet back.
     ls.inputBuffer[targetFrame]             = ls.inputBuffer[targetFrame] or {}
-    ls.inputBuffer[targetFrame][ls.myIndex] = myInput
+    ls.inputBuffer[targetFrame][ls.myIndex] = quantized
 
     Lockstep.send(ls, myInput)
 
@@ -226,6 +227,19 @@ function Lockstep.tick(ls, myInput)
 
     ls.stalledFrames = 0
     return Lockstep.consume(ls)
+end
+
+function Lockstep.quantizeInput(inp)
+    local a = math.floor(((inp.aimAngle + math.pi) / (2 * math.pi)) * 65535 + 0.5) % 65536
+    return {
+        up       = inp.up,
+        dn       = inp.dn,
+        lt       = inp.lt,
+        rt       = inp.rt,
+        fire     = inp.fire,
+        restart  = inp.restart,
+        aimAngle = (a / 65535) * (2 * math.pi) - math.pi,
+    }
 end
 
 return Lockstep

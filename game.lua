@@ -72,7 +72,7 @@ local function initNetwork()
     network.RELAY_HOST   = "localhost"
     network.RELAY_PORT   = 22122
     network.NUM_PLAYERS  = 2
-    network.INPUT_DELAY  = 10
+    network.INPUT_DELAY  = 6
     network.networkIndex = 1
     network.ls           = nil
 end
