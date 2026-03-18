@@ -32,16 +32,17 @@ local network  = {}
 ---@field scores table<integer,integer>
 ---@field roundNumber integer
 local state    = {
-    world         = nil,
-    accumulator   = 0,
-    gameState     = "waiting",
-    roundWinner   = nil,
-    matchWinner   = nil,
-    waitTimer     = 0,
-    scores        = {},
-    roundNumber   = 0,
-    DRAW          = -1,
-    ROUNDS_TO_WIN = 3,
+    world             = nil,
+    accumulator       = 0,
+    gameState         = "waiting",
+    roundWinner       = nil,
+    matchWinner       = nil,
+    waitTimer         = 0,
+    scores            = {},
+    roundNumber       = 0,
+    DRAW              = -1,
+    ROUNDS_TO_WIN     = 3,
+    localWantsRestart = false, -- true once this client has pressed R
 }
 
 -- ── Camera / Cursor ───────────────────────────────────────────────────────────
@@ -119,8 +120,10 @@ local function startMatch()
     for i = 1, network.NUM_PLAYERS do
         state.scores[i] = 0
     end
-    state.roundNumber = 0
-    state.matchWinner = nil
+    state.roundNumber       = 0
+    state.matchWinner       = nil
+    state.accumulator       = 0
+    state.localWantsRestart = false
     startRound()
 end
 
@@ -191,7 +194,62 @@ local function drawOverlays()
         love.graphics.setColor(0, 0, 0, 0.6)
         love.graphics.rectangle("fill", 0, 0, sw, sh)
         love.graphics.setColor(1, 1, 1)
-        love.graphics.printf("Press R to play again", 0, sh / 2 + 8, sw, "center")
+        if network.USE_NETWORK and state.localWantsRestart then
+            love.graphics.printf("Waiting for other players...", 0, sh / 2 + 8, sw, "center")
+        else
+            love.graphics.printf("Press R to play again", 0, sh / 2 + 8, sw, "center")
+        end
+    end
+end
+
+---Ticks the match over for network and local
+---@param keysPressed table<string, boolean>
+local function tickMatchOver(keysPressed)
+    if network.USE_NETWORK then
+        if keysPressed["r"] then state.localWantsRestart = true end
+        local inp = {
+            up = false,
+            dn = false,
+            lt = false,
+            rt = false,
+            fire = false,
+            aimAngle = 0,
+            restart = state.localWantsRestart,
+        }
+        local frameInputs = Lockstep.tick(network.ls, inp)
+        if frameInputs then
+            local allReady = true
+            for i = 1, network.NUM_PLAYERS do
+                if not (frameInputs[i] and frameInputs[i].restart) then
+                    allReady = false; break
+                end
+            end
+            if allReady then
+                startMatch()
+                return
+            end
+        end
+    else
+        if keysPressed["r"] then
+            startMatch()
+            return
+        end
+    end
+end
+
+local function tickFixed(keysPressed)
+    if state.gameState == "waiting" then
+        state.waitTimer = state.waitTimer - FIXED_DT
+        if state.waitTimer <= 0 then
+            state.gameState = "playing"
+        end
+    elseif state.gameState == "playing" then
+        tickSimulation()
+    elseif state.gameState == "roundOver" then
+        state.waitTimer = state.waitTimer - FIXED_DT
+        if state.waitTimer <= 0 then startRound() end
+    elseif state.gameState == "matchOver" then
+        tickMatchOver(keysPressed)
     end
 end
 
@@ -214,33 +272,20 @@ end
 function Game.update(dt, keysPressed)
     dt = math.min(dt, 0.1)
 
+    -- Variable rate: I/O and visuals only
     cursor.x = love.mouse.getX() / SCALE_FACTOR + camera.x
     cursor.y = love.mouse.getY() / SCALE_FACTOR + camera.y
-
-    if state.gameState == "waiting" then
-        state.waitTimer = state.waitTimer - dt
-        if state.waitTimer <= 0 then
-            state.gameState = "playing"
-        end
-    elseif state.gameState == "playing" then
-        if network.USE_NETWORK then
-            Lockstep.receive(network.ls)
-        end
-
-        state.accumulator = state.accumulator + dt
-        while state.accumulator >= FIXED_DT do
-            tickSimulation()
-            state.accumulator = state.accumulator - FIXED_DT
-        end
-        updateCamera(state.world, network.networkIndex, cursor.x, cursor.y, dt)
-    elseif state.gameState == "roundOver" then
-        state.waitTimer = state.waitTimer - dt
-        if state.waitTimer <= 0 then startRound() end
-    elseif state.gameState == "matchOver" then
-        if keysPressed["r"] then
-            startMatch()
-        end
+    if network.USE_NETWORK then
+        Lockstep.receive(network.ls)
     end
+
+    state.accumulator = state.accumulator + dt
+    while state.accumulator >= FIXED_DT do
+        tickFixed(keysPressed)
+        state.accumulator = state.accumulator - FIXED_DT
+    end
+
+    updateCamera(state.world, network.networkIndex, cursor.x, cursor.y, dt)
 end
 
 function Game.draw(canvas)
@@ -248,7 +293,7 @@ function Game.draw(canvas)
     love.graphics.clear(0.2, 0.2, 0.2)
     love.graphics.push()
     love.graphics.translate(-camera.x, -camera.y)
-    local alpha = state.accumulator / FIXED_DT
+    local alpha = (state.gameState == "playing") and (state.accumulator / FIXED_DT) or 1.0
     Systems.draw(state.world, alpha)
     Systems.drawHpBars(state.world, alpha)
     love.graphics.pop()

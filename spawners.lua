@@ -27,7 +27,7 @@ function Spawners.player(w, x, y, index)
     local id          = World.newEntity(w)
     w.position[id]    = C.position(x, y)
     w.velocity[id]    = C.velocity()
-    w.speed[id]       = C.speed(60)
+    w.speed[id]       = C.speed(120)
     w.input[id]       = C.input()
     w.animation[id]   = C.animation({
         love.graphics.newImage("Assets/Sprites/Players/Tiles/tile_0000.png"),
@@ -48,9 +48,10 @@ end
 ---@param defName string
 ---@return integer
 function Spawners.gun(w, ownerId, defName)
-    local def        = Spawners.GunDefs[defName]
-    local id         = World.newEntity(w)
-    w.position[id]   = C.position(0, 0)
+    local def = Spawners.GunDefs[defName]
+    local id  = World.newEntity(w)
+    assert(w.position[ownerId])
+    w.position[id]   = C.position(w.position[ownerId].x, w.position[ownerId].y)
     w.equippedBy[id] = C.equippedBy(ownerId)
     w.gun[id]        = C.gun(def.maxCooldown, def.damage, def.bulletSpeed, def.bulletCount, def.spread)
     w.animation[id]  = C.animation({ love.graphics.newImage(def.sprite) }, 0.1)
