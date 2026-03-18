@@ -1,3 +1,4 @@
+---@class C
 local C = {}
 
 --- Component name constants. Use these instead of raw strings with World.query/find

@@ -5,6 +5,7 @@ local Lockstep = require "lockstep"
 local Utils    = require "utils"
 local C        = require "components"
 
+---@class Game
 local Game     = {}
 local FIXED_DT = 1 / 60
 
@@ -125,7 +126,7 @@ end
 
 local function tickSimulation()
     local frameInputs
-    if Game.USE_NETWORK then
+    if network.USE_NETWORK then
         local myInput = Systems.gatherLocalInput(network.networkIndex, state.world, cursor.x, cursor.y)
         frameInputs = Lockstep.tick(network.ls, myInput)
         if not frameInputs then return end
@@ -200,8 +201,9 @@ function Game.load()
     initNetwork()
     initCameraAndCursor()
 
-    if Game.USE_NETWORK then
-        network.ls           = Lockstep.connect(Game.RELAY_HOST, Game.RELAY_PORT, Game.NUM_PLAYERS, Game.INPUT_DELAY)
+    if network.USE_NETWORK then
+        network.ls           = Lockstep.connect(network.RELAY_HOST, network.RELAY_PORT, network.NUM_PLAYERS,
+            network.INPUT_DELAY)
         network.networkIndex = network.ls.myIndex
         Lockstep.bootstrap(network.ls)
     end
@@ -221,7 +223,7 @@ function Game.update(dt, keysPressed)
             state.gameState = "playing"
         end
     elseif state.gameState == "playing" then
-        if Game.USE_NETWORK then
+        if network.USE_NETWORK then
             Lockstep.receive(network.ls)
         end
 
@@ -255,7 +257,7 @@ function Game.draw(canvas)
 
     love.graphics.draw(canvas, 0, 0, 0, SCALE_FACTOR, SCALE_FACTOR)
 
-    if Game.USE_NETWORK then
+    if network.USE_NETWORK then
         drawNetworkDebug()
     end
 

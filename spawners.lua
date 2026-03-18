@@ -1,6 +1,7 @@
 local World      = require "world"
 local C          = require "components"
 
+---@class Spawners
 local Spawners   = {}
 
 Spawners.GunDefs = {
