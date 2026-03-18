@@ -301,8 +301,8 @@ function Systems.draw(w)
             anim.angle or 0,
             dir,
             anim.flipY or 1,
-            Utils.round(iw / 2),
-            Utils.round(ih / 2)
+            iw / 2,
+            ih / 2
         )
     end
 
@@ -328,8 +328,8 @@ function Systems.drawHpBars(w)
     for _, id in ipairs(idsToUpdate) do
         local hp   = w.hp[id]
 
-        local x    = math.floor(w.position[id].x + 0.5)
-        local y    = math.floor(w.position[id].y + 0.5)
+        local x    = w.position[id].x
+        local y    = w.position[id].y
         local left = x - BAR_W / 2
         local top  = y + OFFSET
         local fill = math.max(0, hp.current / hp.max)

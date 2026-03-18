@@ -33,18 +33,26 @@ local roundWinner = nil
 local waitTimer   = 0.1
 
 local cursor      = { sprite = nil, x = 0, y = 0 }
-local camera      = { x = 0, y = 0 }
+local camera      = { x = 0, y = 0, look_speed = 8, look_ahead = 0.2 }
 
 -- ── Private ───────────────────────────────────────────────────────────────────
 
-local function updateCamera(w, targetIndex)
+
+local function updateCamera(w, targetIndex, cx, cy, dt)
     local pid = Utils.find(
         World.query(w, C.Name.playerIndex, C.Name.position),
         function(id) return w.playerIndex[id].index == targetIndex end
     )
     if not pid then return end
-    camera.x = w.position[pid].x - 240 -- 480/2
-    camera.y = w.position[pid].y - 135 -- 270/2
+    local px = w.position[pid].x
+    local py = w.position[pid].y
+
+    local targetX = px + (cx - px) * camera.look_ahead - 240
+    local targetY = py + (cy - py) * camera.look_ahead - 135
+
+    local t = 1 - math.exp(-camera.look_speed * dt)
+    camera.x = camera.x + (targetX - camera.x) * t
+    camera.y = camera.y + (targetY - camera.y) * t
 end
 
 local function initializeWorld()
@@ -116,7 +124,7 @@ function Game.update(dt)
         end
 
         Systems.runSystems(world, frameInputs, FIXED_DT)
-        updateCamera(world, myIndex)
+        updateCamera(world, myIndex, cursor.x, cursor.y, dt)
 
         local result = Systems.checkWin(world)
         if result then
