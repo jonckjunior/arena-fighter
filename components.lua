@@ -41,7 +41,7 @@ function C.playerIndex(index)
 end
 
 function C.position(x, y)
-    return { x = x, y = y }
+    return { x = x, y = y, px = x, py = y }
 end
 
 function C.velocity(dx, dy)

@@ -185,6 +185,17 @@ function Systems.applyVelocity(w, dt)
     end
 end
 
+---Saves the current position before they're modified
+---@param w World
+function Systems.snapshotPositions(w)
+    for _, id in pairs(w.position) do
+        id.px = id.x
+        id.py = id.y
+    end
+end
+
+---Check collision between a bullet and terrain. If any, destroy bullet
+---@param w World
 function Systems.bulletTerrainCollision(w)
     local solids = World.query(w, C.Name.solid, C.Name.position, C.Name.collider)
     local toDestroy = {}
@@ -273,7 +284,7 @@ end
 
 -- Draw everything with position + animation
 ---@param w World
-function Systems.draw(w)
+function Systems.draw(w, alpha)
     -- Collect entities with animation and position, sorted by y-coordinate
     local drawables = World.query(w, C.Name.animation, C.Name.position)
     -- Sort by y-coordinate (ascending) for correct depth ordering
@@ -294,10 +305,12 @@ function Systems.draw(w)
         local img  = anim.frames[anim.current]
         local iw   = img:getWidth()
         local ih   = img:getHeight()
+        local rx   = pos.px + (pos.x - pos.px) * alpha
+        local ry   = pos.py + (pos.y - pos.py) * alpha
         love.graphics.draw(
             img,
-            pos.x,
-            pos.y,
+            rx,
+            ry,
             anim.angle or 0,
             dir,
             anim.flipY or 1,
@@ -318,7 +331,7 @@ function Systems.draw(w)
 end
 
 ---@param w World
-function Systems.drawHpBars(w)
+function Systems.drawHpBars(w, alpha)
     local BAR_W  = 24
     local BAR_H  = 3
     local OFFSET = -14 -- pixels below entity center
@@ -327,11 +340,11 @@ function Systems.drawHpBars(w)
     local idsToUpdate = World.query(w, C.Name.hp, C.Name.position)
     for _, id in ipairs(idsToUpdate) do
         local hp   = w.hp[id]
-
-        local x    = w.position[id].x
-        local y    = w.position[id].y
-        local left = x - BAR_W / 2
-        local top  = y + OFFSET
+        local pos  = w.position[id]
+        local rx   = pos.px + (pos.x - pos.px) * alpha
+        local ry   = pos.py + (pos.y - pos.py) * alpha
+        local left = rx - BAR_W / 2
+        local top  = ry + OFFSET
         local fill = math.max(0, hp.current / hp.max)
 
         -- background
@@ -420,6 +433,7 @@ end
 
 function Systems.runSystems(w, frameInputs, FIXED_DT)
     Systems.applyInputs(w, frameInputs)
+    Systems.snapshotPositions(w)
     Systems.inputToVelocity(w, FIXED_DT)
     Systems.applyVelocity(w, FIXED_DT)
     Systems.gunCooldown(w)
