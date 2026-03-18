@@ -16,17 +16,9 @@ local FIXED_DT = 1 / 60
 ---@field RELAY_PORT integer
 ---@field NUM_PLAYERS integer
 ---@field INPUT_DELAY integer
----@field myIndex integer
+---@field networkIndex integer
 ---@field ls LockstepState|nil
-local network  = {
-    USE_NETWORK = false,
-    RELAY_HOST  = "localhost",
-    RELAY_PORT  = 22122,
-    NUM_PLAYERS = 2,
-    INPUT_DELAY = 10,
-    myIndex     = 1,
-    ls          = nil,
-}
+local network  = {}
 
 -- ── State ─────────────────────────────────────────────────────────────────────
 ---@class state
@@ -49,18 +41,37 @@ local state    = {
     roundNumber = 0,
 }
 
+-- ── Camera / Cursor ───────────────────────────────────────────────────────────
+
 ---@class cursor
 ---@field sprite love.Image|nil
 ---@field x number
 ---@field y number
-local cursor   = { sprite = nil, x = 0, y = 0 }
+local cursor   = {}
 
 ---@class camera
 ---@field x number
 ---@field y number
----@field look_speed number
----@field look_ahead number
-local camera   = { x = 0, y = 0, look_speed = 8, look_ahead = 0.2 }
+---@field LOOK_SPEED number
+---@field LOOK_AHEAD number
+local camera   = {}
+
+-- ── Init ──────────────────────────────────────────────────────────────────────
+
+local function initCameraAndCursor()
+    camera = { x = 0, y = 0, LOOK_SPEED = 8, LOOK_AHEAD = 0.2 }
+    cursor = { sprite = love.graphics.newImage("Assets/Sprites/Weapons/Tiles/tile_0024.png"), x = 0, y = 0 }
+end
+
+local function initNetwork()
+    network.USE_NETWORK  = false
+    network.RELAY_HOST   = "localhost"
+    network.RELAY_PORT   = 22122
+    network.NUM_PLAYERS  = 2
+    network.INPUT_DELAY  = 10
+    network.networkIndex = 1
+    network.ls           = nil
+end
 
 -- ── Private ───────────────────────────────────────────────────────────────────
 local function updateCamera(w, targetIndex, cx, cy, dt)
@@ -69,13 +80,14 @@ local function updateCamera(w, targetIndex, cx, cy, dt)
         function(id) return w.playerIndex[id].index == targetIndex end
     )
     if not pid then return end
+
     local px = w.position[pid].x
     local py = w.position[pid].y
 
-    local targetX = px + (cx - px) * camera.look_ahead - 240
-    local targetY = py + (cy - py) * camera.look_ahead - 135
+    local targetX = px + (cx - px) * camera.LOOK_AHEAD - 240
+    local targetY = py + (cy - py) * camera.LOOK_AHEAD - 135
 
-    local t = 1 - math.exp(-camera.look_speed * dt)
+    local t = 1 - math.exp(-camera.LOOK_SPEED * dt)
     camera.x = camera.x + (targetX - camera.x) * t
     camera.y = camera.y + (targetY - camera.y) * t
 end
@@ -99,80 +111,25 @@ local function startRound()
     state.waitTimer   = 0.1
 end
 
--- ── Public API ────────────────────────────────────────────────────────────────
-
-function Game.load()
-    cursor.sprite = love.graphics.newImage("Assets/Sprites/Weapons/Tiles/tile_0024.png")
-
+local function tickSimulation()
+    local frameInputs
     if Game.USE_NETWORK then
-        network.ls      = Lockstep.connect(Game.RELAY_HOST, Game.RELAY_PORT, Game.NUM_PLAYERS, Game.INPUT_DELAY)
-        network.myIndex = network.ls.myIndex
-        Lockstep.bootstrap(network.ls)
+        local myInput = Systems.gatherLocalInput(network.networkIndex, state.world, cursor.x, cursor.y)
+        frameInputs = Lockstep.tick(network.ls, myInput)
+        if not frameInputs then return end
+    else
+        frameInputs = { [1] = Systems.gatherLocalInput(1, state.world, cursor.x, cursor.y) }
     end
 
-    startRound()
-end
-
-function Game.update(dt)
-    dt = math.min(dt, 0.1)
-
-    cursor.x = love.mouse.getX() / SCALE_FACTOR + camera.x
-    cursor.y = love.mouse.getY() / SCALE_FACTOR + camera.y
-
-    if state.gameState == "waiting" then
-        state.waitTimer = state.waitTimer - dt
-        if state.waitTimer <= 0 then
-            state.gameState = "playing"
-        end
-        return
-    end
-
-    if Game.USE_NETWORK then
-        Lockstep.receive(network.ls)
-    end
-
-    state.accumulator = state.accumulator + dt
-
-    while state.accumulator >= FIXED_DT do
-        if state.gameState ~= "playing" then
-            state.accumulator = state.accumulator - FIXED_DT
-            goto continueAccumulator
-        end
-
-        local frameInputs
-        if Game.USE_NETWORK then
-            local myInput = Systems.gatherLocalInput(network.myIndex, state.world, cursor.x, cursor.y)
-            frameInputs = Lockstep.tick(network.ls, myInput)
-            if not frameInputs then break end
-        else
-            frameInputs = { [1] = Systems.gatherLocalInput(1, state.world, cursor.x, cursor.y) }
-        end
-
-        Systems.runSystems(state.world, frameInputs, FIXED_DT)
-        updateCamera(state.world, network.myIndex, cursor.x, cursor.y, dt)
-
-        local result = Systems.checkWin(state.world)
-        if result then
-            state.gameState   = "roundOver"
-            state.roundWinner = result.winner or false
-        end
-
-        state.accumulator = state.accumulator - FIXED_DT
-        ::continueAccumulator::
+    Systems.runSystems(state.world, frameInputs, FIXED_DT)
+    local result = Systems.checkWin(state.world)
+    if result then
+        state.gameState   = "roundOver"
+        state.roundWinner = result.winner or false
     end
 end
 
-function Game.draw(canvas)
-    local sw = love.graphics.getWidth()
-    local sh = love.graphics.getHeight()
-
-    love.graphics.setCanvas(canvas)
-    love.graphics.clear(0.2, 0.2, 0.2)
-    love.graphics.push()
-    love.graphics.translate(-camera.x, -camera.y)
-    Systems.draw(state.world)
-    Systems.drawHpBars(state.world)
-    love.graphics.pop()
+local function drawCursor()
     if cursor.sprite then
         local sx = love.mouse.getX() / SCALE_FACTOR
         local sy = love.mouse.getY() / SCALE_FACTOR
@@ -180,17 +137,16 @@ function Game.draw(canvas)
             Utils.round(cursor.sprite:getWidth() / 2),
             Utils.round(cursor.sprite:getHeight() / 2))
     end
-    love.graphics.setCanvas()
+end
 
-    love.graphics.draw(canvas, 0, 0, 0, SCALE_FACTOR, SCALE_FACTOR)
+local function drawNetworkDebug()
+    local stall = network.ls.stalledFrames > 0 and "  STALLED x" .. network.ls.stalledFrames or ""
+    love.graphics.print("P" .. network.networkIndex .. "  f=" .. network.ls.frame .. stall, 4, 4)
+end
 
-    -- Network debug HUD
-    if Game.USE_NETWORK then
-        local stall = network.ls.stalledFrames > 0 and "  STALLED x" .. network.ls.stalledFrames or ""
-        love.graphics.print("P" .. network.myIndex .. "  f=" .. network.ls.frame .. stall, 4, 4)
-    end
-
-    -- Overlays (drawn at screen resolution so text isn't pixelated)
+local function drawOverlays()
+    local sw = love.graphics.getWidth()
+    local sh = love.graphics.getHeight()
     if state.gameState == "waiting" then
         local secs = math.ceil(state.waitTimer)
         love.graphics.setColor(1, 1, 1)
@@ -211,6 +167,66 @@ function Game.draw(canvas)
         love.graphics.printf("Press R to play again", 0, sh / 2 + 8, sw, "center")
         love.graphics.setColor(1, 1, 1)
     end
+end
+
+-- ── Public API ────────────────────────────────────────────────────────────────
+
+function Game.load()
+    initNetwork()
+    initCameraAndCursor()
+
+    if Game.USE_NETWORK then
+        network.ls           = Lockstep.connect(Game.RELAY_HOST, Game.RELAY_PORT, Game.NUM_PLAYERS, Game.INPUT_DELAY)
+        network.networkIndex = network.ls.myIndex
+        Lockstep.bootstrap(network.ls)
+    end
+
+    startRound()
+end
+
+function Game.update(dt)
+    dt = math.min(dt, 0.1)
+
+    cursor.x = love.mouse.getX() / SCALE_FACTOR + camera.x
+    cursor.y = love.mouse.getY() / SCALE_FACTOR + camera.y
+
+    if state.gameState == "waiting" then
+        state.waitTimer = state.waitTimer - dt
+        if state.waitTimer <= 0 then
+            state.gameState = "playing"
+        end
+    elseif state.gameState == "playing" then
+        if Game.USE_NETWORK then
+            Lockstep.receive(network.ls)
+        end
+
+        state.accumulator = state.accumulator + dt
+        while state.accumulator >= FIXED_DT do
+            tickSimulation()
+            state.accumulator = state.accumulator - FIXED_DT
+        end
+        updateCamera(state.world, network.networkIndex, cursor.x, cursor.y, dt)
+    end
+end
+
+function Game.draw(canvas)
+    love.graphics.setCanvas(canvas)
+    love.graphics.clear(0.2, 0.2, 0.2)
+    love.graphics.push()
+    love.graphics.translate(-camera.x, -camera.y)
+    Systems.draw(state.world)
+    Systems.drawHpBars(state.world)
+    love.graphics.pop()
+    drawCursor()
+    love.graphics.setCanvas()
+
+    love.graphics.draw(canvas, 0, 0, 0, SCALE_FACTOR, SCALE_FACTOR)
+
+    if Game.USE_NETWORK then
+        drawNetworkDebug()
+    end
+
+    drawOverlays()
 end
 
 function Game.keypressed(key)
