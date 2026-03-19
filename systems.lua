@@ -67,15 +67,28 @@ end
 ---@param mx number
 ---@param my number
 ---@return table
-function Systems.gatherLocalInput(playerIndex, w, mx, my)
-    local inp     = {
-        up       = love.keyboard.isDown("w"),
-        dn       = love.keyboard.isDown("s"),
-        lt       = love.keyboard.isDown("a"),
-        rt       = love.keyboard.isDown("d"),
-        fire     = love.mouse.isDown(1),
-        aimAngle = 0,
-    }
+function Systems.gatherLocalInput(playerIndex, w, mx, my, USE_NETWORK)
+    local inp
+    if playerIndex == 1 or USE_NETWORK then
+        inp = {
+            up       = love.keyboard.isDown("w"),
+            dn       = love.keyboard.isDown("s"),
+            lt       = love.keyboard.isDown("a"),
+            rt       = love.keyboard.isDown("d"),
+            fire     = love.mouse.isDown(1),
+            aimAngle = 0,
+        }
+    else
+        inp = {
+            up       = love.keyboard.isDown("u"),
+            dn       = love.keyboard.isDown("j"),
+            lt       = love.keyboard.isDown("h"),
+            rt       = love.keyboard.isDown("k"),
+            fire     = love.keyboard.isDown("space"),
+            aimAngle = 0,
+        }
+    end
+
 
     local players = World.query(w, C.Name.playerIndex, C.Name.position, C.Name.input)
     local pid     = Utils.find(players, function(id)
@@ -437,7 +450,53 @@ function Systems.getRoundWinner(w)
     end
 end
 
-function Systems.runSystems(w, frameInputs, FIXED_DT)
+local _soundCache = {}
+local function playSound(path, x, y)
+    if not _soundCache[path] then
+        _soundCache[path] = love.audio.newSource(path, "static")
+    end
+    local clone = _soundCache[path]:clone()
+    clone:setPosition(x, y, 0)
+    clone:setAttenuationDistances(200, 800)
+    clone:play()
+end
+
+function Systems.presentEffects(w, localPlayerIndex)
+    local listenerX, listenerY = 0, 0
+    local players = World.query(w, C.Name.playerIndex, C.Name.position)
+    local pid = Utils.find(players, function(id)
+        return w.playerIndex[id].index == localPlayerIndex
+    end)
+    if pid then
+        listenerX = w.position[pid].x
+        listenerY = w.position[pid].y
+        love.audio.setPosition(listenerX, listenerY, 0)
+    end
+
+    local toDelete = {}
+    for _, id in ipairs(World.query(w, C.Name.soundEvent)) do
+        local ev = w.soundEvent[id]
+        local src = love.audio.newSource(ev.soundPath, "static")
+        if ev.playerIndex == localPlayerIndex then
+            -- playSound(ev.soundPath, listenerX, listenerY)
+            src:setRelative(true)
+            src:setPosition(0, 0, 0)
+        else
+            -- playSound(ev.soundPath, ev.x, ev.y)
+            src:setRelative(false)
+            src:setPosition(ev.x, ev.y, 0)
+        end
+        love.audio.setDistanceModel("linearclamped")
+        src:setAttenuationDistances(100, 500)
+        src:play()
+        toDelete[#toDelete + 1] = id
+    end
+    for _, id in ipairs(toDelete) do
+        World.destroy(w, id)
+    end
+end
+
+function Systems.runSystems(w, frameInputs, localPlayerIndex, FIXED_DT)
     Systems.applyInputs(w, frameInputs)
     Systems.snapshotPositions(w)
     Systems.inputToVelocity(w, FIXED_DT)
@@ -450,6 +509,7 @@ function Systems.runSystems(w, frameInputs, FIXED_DT)
     Systems.death(w)
     Systems.collisionResolution(w)
     Systems.animation(w, FIXED_DT)
+    Systems.presentEffects(w, localPlayerIndex)
     Systems.lifetime(w, FIXED_DT)
 end
 

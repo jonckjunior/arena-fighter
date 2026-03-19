@@ -19,6 +19,7 @@ local C = {}
 ---@field drawLayer   string
 ---@field playerIndex string
 ---@field hp          string
+---@field soundEvent  string
 C.Name = {
     position    = "position",
     velocity    = "velocity",
@@ -35,6 +36,7 @@ C.Name = {
     drawLayer   = "drawLayer",
     playerIndex = "playerIndex",
     hp          = "hp",
+    soundEvent  = "soundEvent",
 }
 
 function C.playerIndex(index)
@@ -98,6 +100,10 @@ end
 
 function C.hp(max)
     return { current = max, max = max }
+end
+
+function C.soundEvent(soundPath, x, y, playerIndex)
+    return { soundPath = soundPath, x = x, y = y, playerIndex = playerIndex }
 end
 
 return C

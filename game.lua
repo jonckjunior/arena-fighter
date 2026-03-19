@@ -112,7 +112,7 @@ local function startRound()
     state.world       = initializeWorld()
     state.gameState   = "waiting"
     state.roundWinner = nil
-    state.waitTimer   = 3.0
+    state.waitTimer   = 0.0
 end
 
 local function startMatch()
@@ -130,14 +130,17 @@ end
 local function tickSimulation()
     local frameInputs
     if network.USE_NETWORK then
-        local myInput = Systems.gatherLocalInput(network.networkIndex, state.world, cursor.x, cursor.y)
+        local myInput = Systems.gatherLocalInput(network.networkIndex, state.world, cursor.x, cursor.y, true)
         frameInputs = Lockstep.tick(network.ls, myInput)
         if not frameInputs then return end
     else
-        frameInputs = { [1] = Systems.gatherLocalInput(1, state.world, cursor.x, cursor.y) }
+        frameInputs = {
+            [1] = Systems.gatherLocalInput(1, state.world, cursor.x, cursor.y, false),
+            [2] = Systems.gatherLocalInput(2, state.world, cursor.x, cursor.y, false),
+        }
     end
 
-    Systems.runSystems(state.world, frameInputs, FIXED_DT)
+    Systems.runSystems(state.world, frameInputs, network.networkIndex, FIXED_DT)
     if Systems.isRoundOver(state.world) then
         state.gameState   = "roundOver"
         state.roundWinner = Systems.getRoundWinner(state.world)

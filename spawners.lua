@@ -80,6 +80,15 @@ function Spawners.bullet(w, ownerId, x, y, vx, vy, damage)
     }, 0.1)
     w.animation[id].isPlaying = true
     w.drawLayer[id]           = C.drawLayer(2)
+
+    local playerIndex    = w.playerIndex[ownerId] and w.playerIndex[ownerId].index
+    Spawners.soundEvent(w, "Assets/Sounds/gunshot.ogg", x, y, playerIndex)
+    return id
+end
+
+function Spawners.soundEvent(w, soundPath, x, y, playerIndex)
+    local id = World.newEntity(w)
+    w.soundEvent[id] = C.soundEvent(soundPath, x, y, playerIndex)
     return id
 end
 

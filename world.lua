@@ -18,6 +18,7 @@ local C     = require "components"
 ---@field drawLayer table<integer, {layer: integer}>
 ---@field playerIndex table<integer, {index: integer}>
 ---@field hp table<integer, {current: number, max: number}>
+---@field soundEvent table<integer, {soundPath: string, x: number, y: number, playerIndex: integer}>
 local World = {}
 
 ---Creates a new world with all its components
