@@ -71,6 +71,7 @@ function World.query(w, ...)
         end
         if match then result[#result + 1] = id end
     end
+    table.sort(result)
     return result
 end
 

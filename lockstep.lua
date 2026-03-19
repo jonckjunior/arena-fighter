@@ -77,7 +77,7 @@ end
 --   [5] angle high   uint8  high byte of uint16
 --   [6] angle low    uint8  low byte of uint16
 --
--- aimAngle [-pi, pi] is mapped to [0, 65535] and split across bytes 5-6.
+-- aimAngle [-pi, pi] is mapped to [0, 65535] across 65536 steps and split across bytes 5-6.
 ---Ready the input to be sent across the network
 ---@param playerIndex integer
 ---@param frame integer
@@ -93,7 +93,7 @@ local function packInput(playerIndex, frame, inp)
     if inp.restart then buttons = buttons + 32 end
 
     local f = frame % 65536
-    local a = math.floor(((inp.aimAngle + math.pi) / (2 * math.pi)) * 65535 + 0.5) % 65536
+    local a = math.floor(((inp.aimAngle + math.pi) / (2 * math.pi)) * 65536 + 0.5) % 65536
 
     return string.char(
         playerIndex,
@@ -101,6 +101,24 @@ local function packInput(playerIndex, frame, inp)
         buttons,
         math.floor(a / 256), a % 256
     )
+end
+
+--- Round-trips an input table through the pack/unpack quantization so that
+--- the angle stored locally is bitwise identical to what remote clients decode.
+--- Call this before storing your own input in the buffer.
+---@param inp table
+---@return table
+function Lockstep.quantizeInput(inp)
+    local a = math.floor(((inp.aimAngle + math.pi) / (2 * math.pi)) * 65536 + 0.5) % 65536
+    return {
+        up       = inp.up,
+        dn       = inp.dn,
+        lt       = inp.lt,
+        rt       = inp.rt,
+        fire     = inp.fire,
+        restart  = inp.restart,
+        aimAngle = (a / 65536) * (2 * math.pi) - math.pi,
+    }
 end
 
 --- Send this frame's local input to the relay.
@@ -142,7 +160,7 @@ local function unpackInput(data)
         rt       = math.floor(buttons / 8) % 2 >= 1,
         fire     = math.floor(buttons / 16) % 2 >= 1,
         restart  = math.floor(buttons / 32) % 2 >= 1,
-        aimAngle = (angle / 65535) * (2 * math.pi) - math.pi,
+        aimAngle = (angle / 65536) * (2 * math.pi) - math.pi,
     }
 end
 
@@ -211,12 +229,11 @@ end
 ---@return table|nil
 function Lockstep.tick(ls, myInput)
     local targetFrame                       = ls.frame + ls.inputDelay
-    local quantized                         = Lockstep.quantizeInput(myInput)
 
     -- Store our own input directly — the relay only echoes to other clients
     -- so we will never receive our own packet back.
     ls.inputBuffer[targetFrame]             = ls.inputBuffer[targetFrame] or {}
-    ls.inputBuffer[targetFrame][ls.myIndex] = quantized
+    ls.inputBuffer[targetFrame][ls.myIndex] = Lockstep.quantizeInput(myInput)
 
     Lockstep.send(ls, myInput)
 
@@ -227,19 +244,6 @@ function Lockstep.tick(ls, myInput)
 
     ls.stalledFrames = 0
     return Lockstep.consume(ls)
-end
-
-function Lockstep.quantizeInput(inp)
-    local a = math.floor(((inp.aimAngle + math.pi) / (2 * math.pi)) * 65535 + 0.5) % 65536
-    return {
-        up       = inp.up,
-        dn       = inp.dn,
-        lt       = inp.lt,
-        rt       = inp.rt,
-        fire     = inp.fire,
-        restart  = inp.restart,
-        aimAngle = (a / 65535) * (2 * math.pi) - math.pi,
-    }
 end
 
 return Lockstep

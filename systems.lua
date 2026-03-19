@@ -2,6 +2,7 @@ local World    = require "world"
 local Spawners = require "spawners"
 local C        = require "components"
 local Utils    = require "utils"
+local FM       = require "fixedmath"
 
 local rng      = love.math.newRandomGenerator(12345)
 
@@ -18,12 +19,12 @@ function Systems.gunFollow(w)
 
         local angle            = inp.aimAngle
         local offset           = 4
-        w.position[gid].x      = pos.x + math.cos(angle) * offset
-        w.position[gid].y      = pos.y + math.sin(angle) * offset + 12
+        w.position[gid].x      = pos.x + FM.cos(angle) * offset
+        w.position[gid].y      = pos.y + FM.sin(angle) * offset + 12
 
         -- store rotation and vertical flip on animation for draw to use
         w.animation[gid].angle = angle
-        w.animation[gid].flipY = math.cos(angle) < 0 and -1 or 1
+        w.animation[gid].flipY = FM.cos(angle) < 0 and -1 or 1
         ::continue::
     end
 end
@@ -125,15 +126,15 @@ function Systems.firing(w)
         if inp.fire and gun.cooldown == 0 then
             local angle   = inp.aimAngle
             local iw      = anim.frames[anim.current]:getWidth()
-            local muzzleX = gunPos.x + math.cos(angle) * (iw / 2)
-            local muzzleY = gunPos.y + math.sin(angle) * (iw / 2)
+            local muzzleX = gunPos.x + FM.cos(angle) * (iw / 2)
+            local muzzleY = gunPos.y + FM.sin(angle) * (iw / 2)
 
             for i = 1, gun.bulletCount do
                 local spreadAngle = (rng:random() - 0.5) * 2 * gun.spread
                 local a           = angle + spreadAngle
                 Spawners.bullet(w, ownerId, muzzleX, muzzleY,
-                    math.cos(a) * gun.bulletSpeed,
-                    math.sin(a) * gun.bulletSpeed,
+                    FM.cos(a) * gun.bulletSpeed,
+                    FM.sin(a) * gun.bulletSpeed,
                     gun.damage)
             end
             gun.cooldown = gun.maxCooldown
@@ -161,7 +162,7 @@ function Systems.inputToVelocity(w, dt)
         w.velocity[id].dx = targetDx * w.speed[id].value
         w.velocity[id].dy = targetDy * w.speed[id].value
 
-        w.facing[id].dir = math.cos(inp.aimAngle) >= 0 and 1 or -1
+        w.facing[id].dir = FM.cos(inp.aimAngle) >= 0 and 1 or -1
 
         w.position[id].x = w.position[id].x + w.velocity[id].dx * dt
         w.position[id].y = w.position[id].y + w.velocity[id].dy * dt
