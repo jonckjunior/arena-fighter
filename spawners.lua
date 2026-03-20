@@ -92,7 +92,7 @@ function Spawners.soundEvent(w, soundPath, x, y, playerIndex)
     return id
 end
 
-function Spawners.barrel(w, x, y)
+function Spawners.wall(w, x, y)
     local id        = World.newEntity(w)
     w.position[id]  = C.position(x, y)
     w.collider[id]  = C.collider(9)
@@ -102,6 +102,24 @@ function Spawners.barrel(w, x, y)
     }, 0.1)
     w.drawLayer[id] = C.drawLayer(1)
     return id
+end
+
+---@param mapDef MapDef
+---@return World
+function Spawners.fromMapDef(mapDef)
+    local w = World.new()
+    w.map   = love.graphics.newImage(mapDef.imagePath)
+
+    for i, sp in ipairs(mapDef.spawnPoints) do
+        local pid = Spawners.player(w, sp.x, sp.y, i)
+        Spawners.gun(w, pid, "pistol")
+    end
+
+    for _, wall in ipairs(mapDef.walls) do
+        Spawners.wall(w, wall.x, wall.y, wall.w, wall.h)
+    end
+
+    return w
 end
 
 return Spawners

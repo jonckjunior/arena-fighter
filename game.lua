@@ -4,6 +4,7 @@ local Spawners = require "spawners"
 local Lockstep = require "lockstep"
 local Utils    = require "utils"
 local C        = require "components"
+local Maps     = require "maps"
 
 ---@class Game
 local Game     = {}
@@ -96,21 +97,8 @@ local function updateCamera(w, targetIndex, cx, cy, dt)
     camera.y = camera.y + (targetY - camera.y) * t
 end
 
-local function initializeWorld()
-    local w = World.new()
-    w.map = love.graphics.newImage("Assets/Maps/arena.png")
-    Spawners.player(w, 100, 100, 1)
-    Spawners.player(w, 300, 100, 2)
-    for id, pidx in pairs(w.playerIndex) do
-        Spawners.gun(w, id, "pistol")
-    end
-    Spawners.barrel(w, 200, 150)
-    Spawners.barrel(w, 216, 150)
-    return w
-end
-
 local function startRound()
-    state.world       = initializeWorld()
+    state.world       = Spawners.fromMapDef(Maps.arena)
     state.gameState   = "waiting"
     state.roundWinner = nil
     state.waitTimer   = 0.0
@@ -297,12 +285,16 @@ function Game.draw(canvas)
     love.graphics.clear(0.2, 0.2, 0.2)
     love.graphics.push()
     love.graphics.translate(-camera.x, -camera.y)
+
+    --- WORLD DRAW
     if state.world.map then
         love.graphics.draw(state.world.map, 0, 0)
     end
     local alpha = (state.gameState == "playing") and (state.accumulator / FIXED_DT) or 1.0
     Systems.draw(state.world, alpha)
     Systems.drawHpBars(state.world, alpha)
+    --- END OF WORLD DRAW
+
     love.graphics.pop()
     drawCursor()
     love.graphics.setCanvas()
