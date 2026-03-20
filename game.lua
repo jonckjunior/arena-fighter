@@ -98,6 +98,7 @@ end
 
 local function initializeWorld()
     local w = World.new()
+    w.map = love.graphics.newImage("Assets/Maps/arena.png")
     Spawners.player(w, 100, 100, 1)
     Spawners.player(w, 300, 100, 2)
     for id, pidx in pairs(w.playerIndex) do
@@ -296,6 +297,9 @@ function Game.draw(canvas)
     love.graphics.clear(0.2, 0.2, 0.2)
     love.graphics.push()
     love.graphics.translate(-camera.x, -camera.y)
+    if state.world.map then
+        love.graphics.draw(state.world.map, 0, 0)
+    end
     local alpha = (state.gameState == "playing") and (state.accumulator / FIXED_DT) or 1.0
     Systems.draw(state.world, alpha)
     Systems.drawHpBars(state.world, alpha)

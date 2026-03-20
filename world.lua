@@ -19,6 +19,7 @@ local C     = require "components"
 ---@field playerIndex table<integer, {index: integer}>
 ---@field hp table<integer, {current: number, max: number}>
 ---@field soundEvent table<integer, {soundPath: string, x: number, y: number, playerIndex: integer}>
+---@field map love.Image|nil
 local World = {}
 
 ---Creates a new world with all its components
