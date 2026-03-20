@@ -1,4 +1,6 @@
 SCALE_FACTOR      = 3
+VIEWPORT_W        = 480
+VIEWPORT_H        = 270
 
 local Game        = require "game"
 local canvas
@@ -8,9 +10,9 @@ local keysPressed = {}
 function love.load()
     love.graphics.setDefaultFilter("nearest", "nearest")
     love.window.setTitle("Arena Fighter")
-    love.window.setMode(480 * SCALE_FACTOR, 270 * SCALE_FACTOR)
+    love.window.setMode(VIEWPORT_W * SCALE_FACTOR, VIEWPORT_H * SCALE_FACTOR)
 
-    canvas = love.graphics.newCanvas(480, 270)
+    canvas = love.graphics.newCanvas(VIEWPORT_W, VIEWPORT_H)
     canvas:setFilter("nearest", "nearest")
 
     love.mouse.setVisible(false)

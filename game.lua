@@ -95,6 +95,9 @@ local function updateCamera(w, targetIndex, cx, cy, dt)
     local t = 1 - math.exp(-camera.LOOK_SPEED * dt)
     camera.x = camera.x + (targetX - camera.x) * t
     camera.y = camera.y + (targetY - camera.y) * t
+
+    camera.x = math.max(0, math.min(camera.x, w.mapWidth - VIEWPORT_W))
+    camera.y = math.max(0, math.min(camera.y, w.mapHeight - VIEWPORT_H))
 end
 
 local function startRound()

@@ -107,8 +107,10 @@ end
 ---@param mapDef MapDef
 ---@return World
 function Spawners.fromMapDef(mapDef)
-    local w = World.new()
-    w.map   = love.graphics.newImage(mapDef.imagePath)
+    local w                 = World.new()
+    w.map                   = love.graphics.newImage(mapDef.imagePath)
+    w.mapWidth, w.mapHeight = w.map:getDimensions()
+
 
     for i, sp in ipairs(mapDef.spawnPoints) do
         local pid = Spawners.player(w, sp.x, sp.y, i)
