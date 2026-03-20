@@ -59,12 +59,25 @@ local cursor   = {}
 ---@field y number
 ---@field LOOK_SPEED number
 ---@field LOOK_AHEAD number
+---@field shake { intensity: number, timer: number, duration: number, shakeOffsetX: number, shakeOffsetY: number }
 local camera   = {}
 
 -- ── Init ──────────────────────────────────────────────────────────────────────
 
 local function initCameraAndCursor()
-    camera = { x = 0, y = 0, LOOK_SPEED = 8, LOOK_AHEAD = 0.2 }
+    camera = {
+        x = 0,
+        y = 0,
+        LOOK_SPEED = 8,
+        LOOK_AHEAD = 0.2,
+        shake = {
+            intensity = 0,
+            duration = 0.2,
+            timer = 0,
+            shakeOffsetX = 0,
+            shakeOffsetY = 0,
+        }
+    }
     cursor = { sprite = love.graphics.newImage("Assets/Sprites/Weapons/Tiles/tile_0024.png"), x = 0, y = 0 }
 end
 
@@ -147,6 +160,29 @@ local function tickSimulation()
                 state.waitTimer = 2.0
             end
         end
+    end
+
+    local daVez = {}
+    for _, id in ipairs(World.query(state.world, C.Name.shakeEvent)) do
+        local shakeEvent = state.world.shakeEvent[id]
+        if shakeEvent.playerIndex == network.networkIndex then
+            camera.shake.intensity = shakeEvent.intensity
+            camera.shake.timer = shakeEvent.duration
+            daVez[#daVez + 1] = id
+        end
+    end
+    for _, id in ipairs(daVez) do
+        World.destroy(state.world, id)
+    end
+
+    camera.shake.timer = math.max(0, camera.shake.timer - FIXED_DT)
+    if camera.shake.timer > 0 then
+        local s = camera.shake.intensity
+        camera.shake.shakeOffsetX = love.math.random(-s, s)
+        camera.shake.shakeOffsetY = love.math.random(-s, s)
+    else
+        camera.shake.shakeOffsetX = 0
+        camera.shake.shakeOffsetY = 0
     end
 end
 
@@ -287,7 +323,7 @@ function Game.draw(canvas)
     love.graphics.setCanvas(canvas)
     love.graphics.clear(0.2, 0.2, 0.2)
     love.graphics.push()
-    love.graphics.translate(-camera.x, -camera.y)
+    love.graphics.translate(-camera.x + camera.shake.shakeOffsetX, -camera.y + camera.shake.shakeOffsetY)
 
     --- WORLD DRAW
     if state.world.map then

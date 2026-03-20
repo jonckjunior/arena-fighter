@@ -450,17 +450,6 @@ function Systems.getRoundWinner(w)
     end
 end
 
-local _soundCache = {}
-local function playSound(path, x, y)
-    if not _soundCache[path] then
-        _soundCache[path] = love.audio.newSource(path, "static")
-    end
-    local clone = _soundCache[path]:clone()
-    clone:setPosition(x, y, 0)
-    clone:setAttenuationDistances(200, 800)
-    clone:play()
-end
-
 function Systems.presentEffects(w, localPlayerIndex)
     local listenerX, listenerY = 0, 0
     local players = World.query(w, C.Name.playerIndex, C.Name.position)

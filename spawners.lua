@@ -83,12 +83,19 @@ function Spawners.bullet(w, ownerId, x, y, vx, vy, damage)
 
     local playerIndex         = w.playerIndex[ownerId] and w.playerIndex[ownerId].index
     Spawners.soundEvent(w, "Assets/Sounds/gunshot.ogg", x, y, playerIndex)
+    Spawners.shakeEvent(w, 1, 0.1, playerIndex)
     return id
 end
 
 function Spawners.soundEvent(w, soundPath, x, y, playerIndex)
     local id = World.newEntity(w)
     w.soundEvent[id] = C.soundEvent(soundPath, x, y, playerIndex)
+    return id
+end
+
+function Spawners.shakeEvent(w, intensity, duration, playerIndex)
+    local id = World.newEntity(w)
+    w.shakeEvent[id] = C.shakeEvent(intensity, duration, playerIndex)
     return id
 end
 
@@ -114,7 +121,7 @@ function Spawners.fromMapDef(mapDef)
 
     for i, sp in ipairs(mapDef.spawnPoints) do
         local pid = Spawners.player(w, sp.x, sp.y, i)
-        Spawners.gun(w, pid, "pistol")
+        Spawners.gun(w, pid, "ak47")
     end
 
     for _, wall in ipairs(mapDef.walls) do

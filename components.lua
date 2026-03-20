@@ -20,6 +20,7 @@ local C = {}
 ---@field playerIndex string
 ---@field hp          string
 ---@field soundEvent  string
+---@field shakeEvent string
 C.Name = {
     position    = "position",
     velocity    = "velocity",
@@ -37,6 +38,7 @@ C.Name = {
     playerIndex = "playerIndex",
     hp          = "hp",
     soundEvent  = "soundEvent",
+    shakeEvent  = "shakeEvent",
 }
 
 function C.playerIndex(index)
@@ -104,6 +106,10 @@ end
 
 function C.soundEvent(soundPath, x, y, playerIndex)
     return { soundPath = soundPath, x = x, y = y, playerIndex = playerIndex }
+end
+
+function C.shakeEvent(intensity, duration, playerIndex)
+    return { intensity = intensity, duration = duration, playerIndex = playerIndex }
 end
 
 return C
