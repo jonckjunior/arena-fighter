@@ -444,7 +444,7 @@ end
 function Systems.getRoundWinner(w)
     local alive = World.query(w, C.Name.playerIndex, C.Name.hp)
     if #alive == 1 then
-        return alive[1]
+        return w.playerIndex[alive[1]].index
     else
         return -1 -- draw
     end

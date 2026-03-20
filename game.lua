@@ -27,8 +27,8 @@ local network  = {}
 ---@field world World|nil
 ---@field accumulator number
 ---@field gameState "waiting"|"playing"|"roundOver"|"matchOver"
----@field roundWinner nil
----@field matchWinner nil
+---@field roundWinner integer|nil
+---@field matchWinner integer|nil
 ---@field waitTimer number
 ---@field scores table<integer,integer>
 ---@field roundNumber integer
@@ -212,8 +212,7 @@ local function drawOverlays()
     elseif state.gameState == "roundOver" then
         local text
         if state.roundWinner ~= state.DRAW then
-            local pidx = state.world.playerIndex[state.roundWinner]
-            text = pidx and ("Player " .. pidx.index .. " wins!") or "Winner!"
+            text = "Player " .. state.roundWinner .. " wins!"
         else
             text = "Draw!"
         end
