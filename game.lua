@@ -162,27 +162,27 @@ local function tickSimulation()
         end
     end
 
-    local daVez = {}
-    for _, id in ipairs(World.query(state.world, C.Name.shakeEvent)) do
-        local shakeEvent = state.world.shakeEvent[id]
-        if shakeEvent.playerIndex == network.networkIndex then
-            camera.shake.intensity = shakeEvent.intensity
-            camera.shake.timer = shakeEvent.duration
-            daVez[#daVez + 1] = id
+
+    local intensity, duration = Systems.shakeEvent(state.world, network.networkIndex)
+    if intensity > 0 then
+        if intensity > camera.shake.intensity then
+            camera.shake.intensity = intensity
         end
-    end
-    for _, id in ipairs(daVez) do
-        World.destroy(state.world, id)
+        if duration > camera.shake.timer then
+            camera.shake.timer = duration
+            camera.shake.duration = duration
+        end
     end
 
     camera.shake.timer = math.max(0, camera.shake.timer - FIXED_DT)
     if camera.shake.timer > 0 then
-        local s = camera.shake.intensity
+        local s = camera.shake.intensity * (camera.shake.timer / camera.shake.duration)
         camera.shake.shakeOffsetX = love.math.random(-s, s)
         camera.shake.shakeOffsetY = love.math.random(-s, s)
     else
         camera.shake.shakeOffsetX = 0
         camera.shake.shakeOffsetY = 0
+        camera.shake.intensity = 0
     end
 end
 

@@ -485,6 +485,28 @@ function Systems.presentEffects(w, localPlayerIndex)
     end
 end
 
+---Computes shake events from the last frame and remove all of them. Returns the event with the highest intensity
+---@param w World
+---@param localPlayerIndex integer
+---@return number
+---@return number
+function Systems.shakeEvent(w, localPlayerIndex)
+    local intensity = 0
+    local duration = 0
+    local shakeEvents = World.query(w, C.Name.shakeEvent)
+    for _, id in ipairs(shakeEvents) do
+        local shakeEvent = w.shakeEvent[id]
+        if shakeEvent.playerIndex == localPlayerIndex and (shakeEvent.intensity > intensity) then
+            intensity = shakeEvent.intensity
+            duration = shakeEvent.duration
+        end
+    end
+    for _, id in ipairs(shakeEvents) do
+        World.destroy(w, id)
+    end
+    return intensity, duration
+end
+
 function Systems.runSystems(w, frameInputs, localPlayerIndex, FIXED_DT)
     Systems.applyInputs(w, frameInputs)
     Systems.snapshotPositions(w)
