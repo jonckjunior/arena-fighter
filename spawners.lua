@@ -131,10 +131,42 @@ function Spawners.fromMapDef(mapDef)
         local pid = Spawners.player(w, sp.x, sp.y, i)
         Spawners.gun(w, pid, "pistol")
     end
-    for i = 1, 100 do
-        Spawners.wall(w, i * 16, 300)
+
+    -- Spawn a horizontal strip of wall tiles from x1 to x2 (step 16) at height y
+    local function row(x1, x2, y)
+        for x = x1, x2, 16 do
+            Spawners.wall(w, x, y)
+        end
     end
-    Spawners.wall(w, 100, 300 - 16)
+
+    -- ── Arena layout (480 × 270 viewport) ──────────────────────────────────
+    --
+    --           [   center platform   ]          y = 190
+    --   [ left platform ]       [ right platform ]   y = 222  (+32)
+    --                   [cov]   [cov]                y = 238  (on floor)
+    -- [================== floor ===================] y = 254  (+32)
+    --
+    -- Every vertical step is 32px. Jump apex with JUMP_SPEED=150, gravity=240
+    -- is ~47px, so every platform is safely reachable in one jump.
+
+    -- Floor — full viewport width
+    row(8, 472, 254)
+
+    -- Left side platform (6 tiles, x 64–144)
+    row(64, 144, 222)
+
+    -- Right side platform (6 tiles, x 336–416)
+    row(336, 416, 222)
+
+    -- Centre raised platform (6 tiles, x 200–280)
+    row(200, 280, 190)
+
+    -- Two single-tile cover blocks sitting on the floor.
+    -- They block sight lines across the middle of the arena and give
+    -- players something to duck behind without fully blocking movement.
+    Spawners.wall(w, 176, 238) -- left-centre cover
+    Spawners.wall(w, 304, 238) -- right-centre cover
+
     return w
 end
 

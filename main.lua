@@ -4,7 +4,7 @@ VIEWPORT_H        = 270
 
 local Game        = require "game"
 local canvas
-local DEBUG       = false
+DEBUG             = true
 local keysPressed = {}
 
 function love.load()

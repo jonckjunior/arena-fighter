@@ -5,7 +5,7 @@ local Utils      = require "utils"
 local FM         = require "fixedmath"
 
 local rng        = love.math.newRandomGenerator(12345)
-local JUMP_SPEED = 150
+local JUMP_SPEED = 142
 
 -- ── Collision helpers ─────────────────────────────────────────────────────────
 -- All collision functions treat position as the CENTER of the shape.
@@ -442,13 +442,17 @@ function Systems.draw(w, alpha)
         for _, id in ipairs(World.query(w, C.Name.position, C.Name.collider)) do
             local pos = w.position[id]
             local col = w.collider[id]
-            love.graphics.setColor(1, 0, 0, 0.5)
+
+            love.graphics.setColor(1, 1, 0, 0.5) -- Yellow with 50% alpha
             if col.shape == "circle" then
-                love.graphics.circle("fill", pos.x, pos.y, col.radius)
+                love.graphics.circle("line", pos.x, pos.y, col.radius)
             elseif col.shape == "rect" then
-                love.graphics.rectangle("fill", pos.x - col.w * 0.5, pos.y - col.h * 0.5, col.w, col.h)
+                love.graphics.rectangle("line",
+                    pos.x - col.w * 0.5,
+                    pos.y - col.h * 0.5,
+                    col.w, col.h
+                )
             end
-            love.graphics.setColor(1, 1, 1)
         end
     end
 end

@@ -8,9 +8,10 @@ local Maps = {
     arena = {
         imagePath   = "Assets/Maps/arena.png",
         spawnPoints = {
-            [1] = { x = 100, y = 100 },
-            [2] = { x = 300, y = 100 },
+            [1] = { x = 104, y = 160 }, -- above left platform
+            [2] = { x = 376, y = 160 }, -- above right platform
         },
+
         walls       = {
             -- populate once we have a proper map
         },
