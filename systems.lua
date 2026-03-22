@@ -1,17 +1,11 @@
-local World                  = require "world"
-local Spawners               = require "spawners"
-local C                      = require "components"
-local Utils                  = require "utils"
-local FM                     = require "fixedmath"
+local World            = require "world"
+local Spawners         = require "spawners"
+local C                = require "components"
+local Utils            = require "utils"
+local FM               = require "fixedmath"
+local PLAYER_CONSTANTS = require "player_constants"
 
-local rng                    = love.math.newRandomGenerator(12345)
-local JUMP_SPEED             = 142  -- pixels/s upward impulse
-local COYOTE_TIME            = 0.3  -- seconds you can still jump after walking off a ledge
-local JUMP_BUFFER_TIME       = 0.1  -- seconds a jump press is remembered before landing
-local MAX_FALL_SPEED         = 300  -- pixels/s terminal velocity (prevents tunnelling)
-local VARIABLE_JUMP_CUTOFF   = 0.35 -- fraction of JUMP_SPEED kept on early key release
-local HALF_GRAVITY_THRESHOLD = 28   -- |dy| below this → half gravity (hang at apex)
-local FAST_FALL_MULTIPLIER   = 1.3  -- extra gravity factor when holding down mid-air
+local rng              = love.math.newRandomGenerator(12345)
 
 -- ── Collision helpers ─────────────────────────────────────────────────────────
 -- All collision functions treat position as the CENTER of the shape.
@@ -270,31 +264,26 @@ end
 ---@param w World
 ---@param dt number
 function Systems.inputToVelocity(w, dt)
-    local idsToUpdate = World.query(w, C.Name.input, C.Name.speed, C.Name.velocity, C.Name.position)
+    local idsToUpdate = World.query(w, C.Name.input, C.Name.speed, C.Name.velocity, C.Name.position, C.Name.jumpTimers)
     for _, id in ipairs(idsToUpdate) do
         local inp           = w.input[id]
+        local jmp           = w.jumpTimers[id]
         local targetDx      = (inp.rt and 1 or 0) - (inp.lt and 1 or 0)
 
         -- Horizontal movement: overwrite dx every frame from input
         w.velocity[id].dx   = targetDx * w.speed[id].value
 
-        -- Jump: fires on the press-edge (false→true) OR when a buffered press is still
-        -- active. Allows jumping for COYOTE_TIME seconds after walking off a ledge.
         local isGroundedNow = w.grounded[id] and w.grounded[id].value
-        local hasCoyote     = (inp.coyoteTime or 0) > 0
-        local wantsJump     = (inp.up and not inp.prevUp) or ((inp.jumpBuffer or 0) > 0)
+        local hasCoyote     = jmp.coyoteTime > 0
+        local wantsJump     = (inp.up and not inp.prevUp) or (jmp.jumpBuffer > 0)
         if wantsJump and (isGroundedNow or hasCoyote) then
-            w.velocity[id].dy = -JUMP_SPEED
-            inp.jumpBuffer    = 0 -- consume buffer
-            inp.coyoteTime    = 0 -- consume coyote window
+            w.velocity[id].dy = -PLAYER_CONSTANTS.JUMP_SPEED
+            jmp.jumpBuffer    = 0 -- consume buffer
+            jmp.coyoteTime    = 0 -- consume coyote window
         end
 
-        -- Variable jump height: while ascending without holding jump,
-        -- clamp dy to the cutoff every frame. No flag needed — the
-        -- key state itself determines whether the cap is active, so
-        -- there's nothing to get out of sync.
         if not inp.up and w.velocity[id].dy < 0 then
-            local cutoff = -JUMP_SPEED * VARIABLE_JUMP_CUTOFF
+            local cutoff = -PLAYER_CONSTANTS.JUMP_SPEED * PLAYER_CONSTANTS.VARIABLE_JUMP_CUTOFF
             if w.velocity[id].dy < cutoff then
                 w.velocity[id].dy = cutoff
             end
@@ -634,18 +623,18 @@ function Systems.applyGravity(w, dt)
             -- Half-gravity near the apex: brief hang when |dy| is tiny.
             -- Only for player-controlled entities; bullets fall at full gravity.
             local inp       = w.input[id]
-            local nearApex  = math.abs(w.velocity[id].dy) < HALF_GRAVITY_THRESHOLD
-            local gravScale = (inp and nearApex) and 0.7 or 1.0
+            local nearApex  = math.abs(w.velocity[id].dy) < PLAYER_CONSTANTS.HALF_GRAVITY_THRESHOLD
+            local gravScale = (inp and nearApex) and 0.8 or 1.0
 
             -- Fast fall: holding down while already falling adds extra pull
             if inp and inp.dn and w.velocity[id].dy > 0 then
-                gravScale = gravScale * FAST_FALL_MULTIPLIER
+                gravScale = gravScale * PLAYER_CONSTANTS.FAST_FALL_MULTIPLIER
             end
 
             w.velocity[id].dy = w.velocity[id].dy + w.gravity[id].g * dt * gravScale
 
-            if w.velocity[id].dy > MAX_FALL_SPEED then
-                w.velocity[id].dy = MAX_FALL_SPEED
+            if w.velocity[id].dy > PLAYER_CONSTANTS.MAX_FALL_SPEED then
+                w.velocity[id].dy = PLAYER_CONSTANTS.MAX_FALL_SPEED
             end
         else
             if w.velocity[id].dy > 0 then
@@ -694,22 +683,23 @@ end
 ---@param w World
 ---@param dt number
 function Systems.updateJumpTimers(w, dt)
-    for _, id in ipairs(World.query(w, C.Name.input, C.Name.grounded)) do
+    for _, id in ipairs(World.query(w, C.Name.jumpTimers, C.Name.input, C.Name.grounded)) do
         local inp        = w.input[id]
+        local jmp        = w.jumpTimers[id]
         local isGrounded = w.grounded[id].value
 
         -- Coyote time: full while grounded, drains once airborne
         if isGrounded then
-            inp.coyoteTime = COYOTE_TIME
+            jmp.coyoteTime = PLAYER_CONSTANTS.COYOTE_TIME
         else
-            inp.coyoteTime = math.max((inp.coyoteTime or 0) - dt, 0)
+            jmp.coyoteTime = math.max(jmp.coyoteTime - dt, 0)
         end
 
         -- Jump buffer: set when jump is pressed mid-air (edge only)
         if inp.up and not inp.prevUp and not isGrounded then
-            inp.jumpBuffer = JUMP_BUFFER_TIME
+            jmp.jumpBuffer = PLAYER_CONSTANTS.JUMP_BUFFER_TIME
         else
-            inp.jumpBuffer = math.max((inp.jumpBuffer or 0) - dt, 0)
+            jmp.jumpBuffer = math.max(jmp.jumpBuffer - dt, 0)
         end
     end
 end

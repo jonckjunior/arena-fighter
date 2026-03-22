@@ -1,10 +1,11 @@
-local World      = require "world"
-local C          = require "components"
+local World            = require "world"
+local C                = require "components"
+local PLAYER_CONSTANTS = require "player_constants"
 
 ---@class Spawners
-local Spawners   = {}
+local Spawners         = {}
 
-Spawners.GunDefs = {
+Spawners.GunDefs       = {
     pistol = {
         maxCooldown = 15,
         damage      = 20,
@@ -44,9 +45,10 @@ function Spawners.player(w, x, y, index)
     w.collider[id]    = C.rectCollider(10, 14)
     w.drawLayer[id]   = C.drawLayer(1)
     w.playerIndex[id] = C.playerIndex(index)
-    w.hp[id]          = C.hp(100)
-    w.gravity[id]     = C.gravity(460)
+    w.hp[id]          = C.hp(PLAYER_CONSTANTS.HP)
+    w.gravity[id]     = C.gravity(PLAYER_CONSTANTS.GRAVITY)
     w.grounded[id]    = C.grounded()
+    w.jumpTimers[id]  = C.jumpTimers(PLAYER_CONSTANTS.COYOTE_TIME, PLAYER_CONSTANTS.JUMP_BUFFER_TIME)
     return id
 end
 

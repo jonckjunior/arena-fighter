@@ -23,6 +23,7 @@ local C = {}
 ---@field shakeEvent  string
 ---@field gravity     string
 ---@field grounded    string
+---@field jumpTimers  string
 
 C.Name = {
     position    = "position",
@@ -44,6 +45,7 @@ C.Name = {
     shakeEvent  = "shakeEvent",
     gravity     = "gravity",
     grounded    = "grounded",
+    jumpTimers  = "jumpTimers",
 }
 
 function C.grounded()
@@ -134,6 +136,10 @@ end
 
 function C.shakeEvent(intensity, duration, playerIndex)
     return { intensity = intensity, duration = duration, playerIndex = playerIndex }
+end
+
+function C.jumpTimers(coyoteTime, jumpBuffer)
+    return { coyoteTime = coyoteTime, jumpBuffer = jumpBuffer }
 end
 
 return C
