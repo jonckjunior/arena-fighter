@@ -14,7 +14,7 @@ local STANDARD_GRAVITY = 600
 ---@field solid table
 ---@field collider table<integer, {shape: "circle"|"rect", radius: number|nil, w: number|nil, h: number|nil}>
 ---@field gun table<integer, {cooldown: number, maxCooldown: number, damage: number, bulletSpeed: number}>
----@field bullet table<integer, {ownerId: integer, damage: number}>
+---@field bullet table<integer, {ownerId: integer, damage: number, graceFrames: integer}>
 ---@field lifetime table<integer, {ttl: number}>
 ---@field equippedBy table<integer, {ownerId: integer}>
 ---@field drawLayer table<integer, {layer: integer}>
