@@ -8,7 +8,7 @@ Spawners.GunDefs = {
     pistol = {
         maxCooldown = 15,
         damage      = 20,
-        bulletSpeed = 600,
+        bulletSpeed = 400,
         bulletCount = 1,
         spread      = 0,
         sprite      = "Assets/Sprites/Weapons/Tiles/tile_0000.png",
@@ -129,7 +129,7 @@ function Spawners.fromMapDef(mapDef)
 
     for i, sp in ipairs(mapDef.spawnPoints) do
         local pid = Spawners.player(w, sp.x, sp.y, i)
-        Spawners.gun(w, pid, "ak47")
+        Spawners.gun(w, pid, "pistol")
     end
     for i = 1, 100 do
         Spawners.wall(w, i * 16, 300)

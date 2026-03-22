@@ -123,7 +123,7 @@ function Systems.gunFollow(w)
         local angle            = inp.aimAngle
         local offset           = 4
         w.position[gid].x      = pos.x + FM.cos(angle) * offset
-        w.position[gid].y      = pos.y + FM.sin(angle) * offset + 12
+        w.position[gid].y      = pos.y + FM.sin(angle) * offset
 
         -- store rotation and vertical flip on animation for draw to use
         w.animation[gid].angle = angle
@@ -265,22 +265,16 @@ end
 function Systems.inputToVelocity(w, dt)
     local idsToUpdate = World.query(w, C.Name.input, C.Name.speed, C.Name.velocity, C.Name.position)
     for _, id in ipairs(idsToUpdate) do
-        local inp      = w.input[id]
-        local targetDx = (inp.rt and 1 or 0) - (inp.lt and 1 or 0)
-        local targetDy = (inp.dn and 1 or 0) - (inp.up and 1 or 0)
-
-        -- Normalize diagonal movement
-        if targetDx ~= 0 and targetDy ~= 0 then
-            targetDx = targetDx * 0.7071
-            targetDy = targetDy * 0.7071
-        end
+        local inp         = w.input[id]
+        local targetDx    = (inp.rt and 1 or 0) - (inp.lt and 1 or 0)
+        local targetDy    = (inp.dn and 1 or 0) - (inp.up and 1 or 0)
 
         w.velocity[id].dx = targetDx * w.speed[id].value
 
-        w.facing[id].dir = FM.cos(inp.aimAngle) >= 0 and 1 or -1
+        w.facing[id].dir  = FM.cos(inp.aimAngle) >= 0 and 1 or -1
 
-        w.position[id].x = w.position[id].x + w.velocity[id].dx * dt
-        w.position[id].y = w.position[id].y + w.velocity[id].dy * dt
+        w.position[id].x  = w.position[id].x + w.velocity[id].dx * dt
+        w.position[id].y  = w.position[id].y + w.velocity[id].dy * dt
 
         if w.animation[id] then
             w.animation[id].isPlaying = (targetDx ~= 0 or targetDy ~= 0)
@@ -320,6 +314,12 @@ function Systems.bulletTerrainCollision(w)
     for _, bid in ipairs(bullets) do
         local bpos = w.position[bid]
         local bcol = w.collider[bid]
+        local bullet = w.bullet[bid]
+        if bullet.graceFrames > 0 then
+            bullet.graceFrames = bullet.graceFrames - 1
+            goto continueBullet
+        end
+
         for _, sid in ipairs(solids) do
             local spos = w.position[sid]
             local scol = w.collider[sid]
@@ -328,6 +328,7 @@ function Systems.bulletTerrainCollision(w)
                 break -- bullet is gone, no point checking remaining solids
             end
         end
+        ::continueBullet::
     end
 
     for _, bid in ipairs(toDestroy) do

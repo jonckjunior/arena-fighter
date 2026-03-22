@@ -108,8 +108,8 @@ function C.gun(maxCooldown, damage, bulletSpeed, bulletCount, spread)
     }
 end
 
-function C.bullet(ownerId, damage)
-    return { ownerId = ownerId, damage = damage }
+function C.bullet(ownerId, damage, graceFrames)
+    return { ownerId = ownerId, damage = damage, graceFrames = graceFrames or 1 }
 end
 
 function C.lifetime(ttl)
