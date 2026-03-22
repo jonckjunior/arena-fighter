@@ -218,6 +218,7 @@ function Systems.applyInputs(w, frameInputs)
         local pidx = w.playerIndex[id]
         local inp = frameInputs[pidx.index]
         if inp and w.input[id] then
+            w.input[id].prevUp   = w.input[id].up
             w.input[id].up       = inp.up
             w.input[id].dn       = inp.dn
             w.input[id].lt       = inp.lt
@@ -273,7 +274,7 @@ function Systems.inputToVelocity(w, dt)
         w.velocity[id].dx = targetDx * w.speed[id].value
 
         -- Jump: upward impulse only when pressing up AND standing on solid ground
-        if inp.up and w.grounded[id] and w.grounded[id].value then
+        if inp.up and not inp.prevUp and w.grounded[id] and w.grounded[id].value then
             w.velocity[id].dy = -JUMP_SPEED
         end
 

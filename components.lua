@@ -71,7 +71,7 @@ function C.speed(value)
 end
 
 function C.input()
-    return { up = false, dn = false, lt = false, rt = false, fire = false, aimAngle = 0 }
+    return { prevUp = false, up = false, dn = false, lt = false, rt = false, fire = false, aimAngle = 0 }
 end
 
 function C.animation(frames, duration)
