@@ -173,7 +173,6 @@ function Systems.inputToVelocity(w, dt)
         end
 
         w.velocity[id].dx = targetDx * w.speed[id].value
-        w.velocity[id].dy = targetDy * w.speed[id].value
 
         w.facing[id].dir = FM.cos(inp.aimAngle) >= 0 and 1 or -1
 

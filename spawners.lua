@@ -23,6 +23,12 @@ Spawners.GunDefs = {
     },
 }
 
+---Creates and returns a player at position x and y with network index index
+---@param w World
+---@param x integer
+---@param y integer
+---@param index integer
+---@return integer
 function Spawners.player(w, x, y, index)
     local id          = World.newEntity(w)
     w.position[id]    = C.position(x, y)
@@ -39,6 +45,7 @@ function Spawners.player(w, x, y, index)
     w.drawLayer[id]   = C.drawLayer(1)
     w.playerIndex[id] = C.playerIndex(index)
     w.hp[id]          = C.hp(100)
+    w.gravity[id]     = C.gravity(w.STANDARD_GRAVITY * 0.4)
     return id
 end
 
@@ -119,16 +126,10 @@ function Spawners.fromMapDef(mapDef)
     w.map                   = love.graphics.newImage(mapDef.imagePath)
     w.mapWidth, w.mapHeight = w.map:getDimensions()
 
-
     for i, sp in ipairs(mapDef.spawnPoints) do
         local pid = Spawners.player(w, sp.x, sp.y, i)
         Spawners.gun(w, pid, "ak47")
     end
-
-    for _, wall in ipairs(mapDef.walls) do
-        Spawners.wall(w, wall.x, wall.y, wall.w, wall.h)
-    end
-
     return w
 end
 
