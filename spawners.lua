@@ -41,11 +41,11 @@ function Spawners.player(w, x, y, index)
         love.graphics.newImage("Assets/Sprites/Players/Tiles/tile_0002.png"),
     }, 0.15)
     w.facing[id]      = C.facing(1)
-    w.collider[id]    = C.circleCollider(9)
+    w.collider[id]    = C.circleCollider(8)
     w.drawLayer[id]   = C.drawLayer(1)
     w.playerIndex[id] = C.playerIndex(index)
     w.hp[id]          = C.hp(100)
-    w.gravity[id]     = C.gravity(w.STANDARD_GRAVITY * 0.7)
+    w.gravity[id]     = C.gravity(460)
     w.grounded[id]    = C.grounded()
     return id
 end

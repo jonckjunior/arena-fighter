@@ -1,14 +1,17 @@
-local World            = require "world"
-local Spawners         = require "spawners"
-local C                = require "components"
-local Utils            = require "utils"
-local FM               = require "fixedmath"
+local World                  = require "world"
+local Spawners               = require "spawners"
+local C                      = require "components"
+local Utils                  = require "utils"
+local FM                     = require "fixedmath"
 
-local rng              = love.math.newRandomGenerator(12345)
-local JUMP_SPEED       = 142 -- pixels/s upward impulse
-local COYOTE_TIME      = 0.3 -- seconds you can still jump after walking off a ledge
-local JUMP_BUFFER_TIME = 0.1 -- seconds a jump press is remembered before landing
-local MAX_FALL_SPEED   = 300 -- pixels/s terminal velocity (prevents tunnelling)
+local rng                    = love.math.newRandomGenerator(12345)
+local JUMP_SPEED             = 142  -- pixels/s upward impulse
+local COYOTE_TIME            = 0.3  -- seconds you can still jump after walking off a ledge
+local JUMP_BUFFER_TIME       = 0.1  -- seconds a jump press is remembered before landing
+local MAX_FALL_SPEED         = 300  -- pixels/s terminal velocity (prevents tunnelling)
+local VARIABLE_JUMP_CUTOFF   = 0.35 -- fraction of JUMP_SPEED kept on early key release
+local HALF_GRAVITY_THRESHOLD = 28   -- |dy| below this → half gravity (hang at apex)
+local FAST_FALL_MULTIPLIER   = 1.3  -- extra gravity factor when holding down mid-air
 
 -- ── Collision helpers ─────────────────────────────────────────────────────────
 -- All collision functions treat position as the CENTER of the shape.
@@ -284,6 +287,17 @@ function Systems.inputToVelocity(w, dt)
             w.velocity[id].dy = -JUMP_SPEED
             inp.jumpBuffer    = 0 -- consume buffer
             inp.coyoteTime    = 0 -- consume coyote window
+        end
+
+        -- Variable jump height: while ascending without holding jump,
+        -- clamp dy to the cutoff every frame. No flag needed — the
+        -- key state itself determines whether the cap is active, so
+        -- there's nothing to get out of sync.
+        if not inp.up and w.velocity[id].dy < 0 then
+            local cutoff = -JUMP_SPEED * VARIABLE_JUMP_CUTOFF
+            if w.velocity[id].dy < cutoff then
+                w.velocity[id].dy = cutoff
+            end
         end
         if inp.dn and w.grounded[id] and w.grounded[id].value == false then
             w.velocity[id].dy = w.velocity[id].dy + 10
@@ -617,8 +631,19 @@ function Systems.applyGravity(w, dt)
     for _, id in ipairs(World.query(w, C.Name.gravity, C.Name.velocity)) do
         local isGrounded = w.grounded[id] and w.grounded[id].value
         if not isGrounded then
-            w.velocity[id].dy = w.velocity[id].dy + w.gravity[id].g * dt
-            -- Terminal velocity: prevents tunnelling through thin platforms on long falls
+            -- Half-gravity near the apex: brief hang when |dy| is tiny.
+            -- Only for player-controlled entities; bullets fall at full gravity.
+            local inp       = w.input[id]
+            local nearApex  = math.abs(w.velocity[id].dy) < HALF_GRAVITY_THRESHOLD
+            local gravScale = (inp and nearApex) and 0.7 or 1.0
+
+            -- Fast fall: holding down while already falling adds extra pull
+            if inp and inp.dn and w.velocity[id].dy > 0 then
+                gravScale = gravScale * FAST_FALL_MULTIPLIER
+            end
+
+            w.velocity[id].dy = w.velocity[id].dy + w.gravity[id].g * dt * gravScale
+
             if w.velocity[id].dy > MAX_FALL_SPEED then
                 w.velocity[id].dy = MAX_FALL_SPEED
             end
@@ -638,6 +663,9 @@ function Systems.updateGrounded(w)
 
     local solids = World.query(w, C.Name.solid, C.Name.position, C.Name.collider)
     for _, id in ipairs(World.query(w, C.Name.grounded, C.Name.position, C.Name.collider)) do
+        if w.velocity[id] and w.velocity[id].dy < 0 then
+            goto next_entity
+        end
         -- The margin: check 1 pixel below the entity
         local checkY = w.position[id].y + 1
 
@@ -657,6 +685,7 @@ function Systems.updateGrounded(w)
 
             ::next_solid::
         end
+        ::next_entity::
     end
 end
 
