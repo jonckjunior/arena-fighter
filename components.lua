@@ -21,6 +21,7 @@ local C = {}
 ---@field hp          string
 ---@field soundEvent  string
 ---@field shakeEvent string
+---@field gravity string
 C.Name = {
     position    = "position",
     velocity    = "velocity",
@@ -39,6 +40,7 @@ C.Name = {
     hp          = "hp",
     soundEvent  = "soundEvent",
     shakeEvent  = "shakeEvent",
+    gravity     = "gravity",
 }
 
 function C.playerIndex(index)
@@ -47,6 +49,10 @@ end
 
 function C.position(x, y)
     return { x = x, y = y, px = x, py = y }
+end
+
+function C.gravity(g)
+    return { g = g }
 end
 
 function C.velocity(dx, dy)

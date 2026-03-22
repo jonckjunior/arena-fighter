@@ -507,11 +507,20 @@ function Systems.shakeEvent(w, localPlayerIndex)
     return intensity, duration
 end
 
+function Systems.applyGravity(w, dt)
+    local gravityIds = World.query(w, C.Name.gravity, C.Name.velocity)
+    for _, id in ipairs(gravityIds) do
+        local vel = w.velocity[id]
+        vel.dy = vel.dy + w.gravity[id].g * dt
+    end
+end
+
 function Systems.runSystems(w, frameInputs, localPlayerIndex, FIXED_DT)
     Systems.applyInputs(w, frameInputs)
     Systems.snapshotPositions(w)
     Systems.inputToVelocity(w, FIXED_DT)
     Systems.applyVelocity(w, FIXED_DT)
+    Systems.applyGravity(w, FIXED_DT)
     Systems.gunCooldown(w)
     Systems.gunFollow(w)
     Systems.firing(w)

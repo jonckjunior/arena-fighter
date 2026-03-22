@@ -16,7 +16,7 @@ Spawners.GunDefs = {
     ak47 = {
         maxCooldown = 15,
         damage      = 20,
-        bulletSpeed = 600,
+        bulletSpeed = 400,
         bulletCount = 1,
         spread      = 0,
         sprite      = "Assets/Sprites/Weapons/Tiles/tile_0005.png",
@@ -80,6 +80,7 @@ function Spawners.bullet(w, ownerId, x, y, vx, vy, damage)
     }, 0.1)
     w.animation[id].isPlaying = true
     w.drawLayer[id]           = C.drawLayer(2)
+    w.gravity[id]             = C.gravity(w.STANDARD_GRAVITY)
 
     local playerIndex         = w.playerIndex[ownerId] and w.playerIndex[ownerId].index
     Spawners.soundEvent(w, "Assets/Sounds/gunshot.ogg", x, y, playerIndex)
