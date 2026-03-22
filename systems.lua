@@ -1,10 +1,11 @@
-local World    = require "world"
-local Spawners = require "spawners"
-local C        = require "components"
-local Utils    = require "utils"
-local FM       = require "fixedmath"
+local World      = require "world"
+local Spawners   = require "spawners"
+local C          = require "components"
+local Utils      = require "utils"
+local FM         = require "fixedmath"
 
-local rng      = love.math.newRandomGenerator(12345)
+local rng        = love.math.newRandomGenerator(12345)
+local JUMP_SPEED = 150
 
 -- ── Collision helpers ─────────────────────────────────────────────────────────
 -- All collision functions treat position as the CENTER of the shape.
@@ -259,7 +260,7 @@ function Systems.firing(w)
     end
 end
 
----Reads the input for each entity and apply it's velocity to its position. It also alters the animation state
+---Reads the input for each entity and apply it's velocity to its position. It also alters the animation state.
 ---@param w World
 ---@param dt number
 function Systems.inputToVelocity(w, dt)
@@ -267,17 +268,28 @@ function Systems.inputToVelocity(w, dt)
     for _, id in ipairs(idsToUpdate) do
         local inp         = w.input[id]
         local targetDx    = (inp.rt and 1 or 0) - (inp.lt and 1 or 0)
-        local targetDy    = (inp.dn and 1 or 0) - (inp.up and 1 or 0)
 
+        -- Horizontal movement: overwrite dx every frame from input
         w.velocity[id].dx = targetDx * w.speed[id].value
 
-        w.facing[id].dir  = FM.cos(inp.aimAngle) >= 0 and 1 or -1
+        -- Jump: upward impulse only when pressing up AND standing on solid ground
+        if inp.up and w.grounded[id] and w.grounded[id].value then
+            w.velocity[id].dy = -JUMP_SPEED
+        end
 
-        w.position[id].x  = w.position[id].x + w.velocity[id].dx * dt
-        w.position[id].y  = w.position[id].y + w.velocity[id].dy * dt
+        if inp.dn and w.grounded[id] and w.grounded[id].value == false then
+            w.velocity[id].dy = w.velocity[id].dy + 10
+        end
 
+
+        w.facing[id].dir = FM.cos(inp.aimAngle) >= 0 and 1 or -1
+
+        w.position[id].x = w.position[id].x + w.velocity[id].dx * dt
+        w.position[id].y = w.position[id].y + w.velocity[id].dy * dt
+
+        -- Walk animation only plays while moving on the ground; idle/airborne show frame 1
         if w.animation[id] then
-            w.animation[id].isPlaying = (targetDx ~= 0 or targetDy ~= 0)
+            w.animation[id].isPlaying = (targetDx ~= 0) and (w.grounded[id] and w.grounded[id].value)
         end
     end
 end
@@ -428,9 +440,13 @@ function Systems.draw(w, alpha)
     if DEBUG then
         for _, id in ipairs(World.query(w, C.Name.position, C.Name.collider)) do
             local pos = w.position[id]
-            local r   = w.collider[id].radius
+            local col = w.collider[id]
             love.graphics.setColor(1, 0, 0, 0.5)
-            love.graphics.circle("fill", pos.x, pos.y, r)
+            if col.shape == "circle" then
+                love.graphics.circle("fill", pos.x, pos.y, col.radius)
+            elseif col.shape == "rect" then
+                love.graphics.rectangle("fill", pos.x - col.w * 0.5, pos.y - col.h * 0.5, col.w, col.h)
+            end
             love.graphics.setColor(1, 1, 1)
         end
     end
@@ -611,6 +627,10 @@ function Systems.updateGrounded(w)
 
     local solids = World.query(w, C.Name.solid, C.Name.position, C.Name.collider)
     for _, id in ipairs(World.query(w, C.Name.grounded, C.Name.position, C.Name.collider)) do
+        if w.velocity[id] and w.velocity[id].dy < 0 then
+            goto skip_entity
+        end
+
         -- The margin: check 1 pixel below the entity
         local checkY = w.position[id].y + 1
 
@@ -630,6 +650,7 @@ function Systems.updateGrounded(w)
 
             ::next_solid::
         end
+        ::skip_entity::
     end
 end
 

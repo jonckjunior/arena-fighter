@@ -45,7 +45,7 @@ function Spawners.player(w, x, y, index)
     w.drawLayer[id]   = C.drawLayer(1)
     w.playerIndex[id] = C.playerIndex(index)
     w.hp[id]          = C.hp(100)
-    w.gravity[id]     = C.gravity(w.STANDARD_GRAVITY * 0.4)
+    w.gravity[id]     = C.gravity(w.STANDARD_GRAVITY * 0.7)
     w.grounded[id]    = C.grounded()
     return id
 end
@@ -134,6 +134,7 @@ function Spawners.fromMapDef(mapDef)
     for i = 1, 100 do
         Spawners.wall(w, i * 16, 300)
     end
+    Spawners.wall(w, 100, 300 - 16)
     return w
 end
 
