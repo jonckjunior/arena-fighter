@@ -1,11 +1,14 @@
-local World      = require "world"
-local Spawners   = require "spawners"
-local C          = require "components"
-local Utils      = require "utils"
-local FM         = require "fixedmath"
+local World            = require "world"
+local Spawners         = require "spawners"
+local C                = require "components"
+local Utils            = require "utils"
+local FM               = require "fixedmath"
 
-local rng        = love.math.newRandomGenerator(12345)
-local JUMP_SPEED = 142
+local rng              = love.math.newRandomGenerator(12345)
+local JUMP_SPEED       = 142 -- pixels/s upward impulse
+local COYOTE_TIME      = 0.3 -- seconds you can still jump after walking off a ledge
+local JUMP_BUFFER_TIME = 0.1 -- seconds a jump press is remembered before landing
+local MAX_FALL_SPEED   = 300 -- pixels/s terminal velocity (prevents tunnelling)
 
 -- ── Collision helpers ─────────────────────────────────────────────────────────
 -- All collision functions treat position as the CENTER of the shape.
@@ -218,7 +221,6 @@ function Systems.applyInputs(w, frameInputs)
         local pidx = w.playerIndex[id]
         local inp = frameInputs[pidx.index]
         if inp and w.input[id] then
-            w.input[id].prevUp   = w.input[id].up
             w.input[id].up       = inp.up
             w.input[id].dn       = inp.dn
             w.input[id].lt       = inp.lt
@@ -267,21 +269,25 @@ end
 function Systems.inputToVelocity(w, dt)
     local idsToUpdate = World.query(w, C.Name.input, C.Name.speed, C.Name.velocity, C.Name.position)
     for _, id in ipairs(idsToUpdate) do
-        local inp         = w.input[id]
-        local targetDx    = (inp.rt and 1 or 0) - (inp.lt and 1 or 0)
+        local inp           = w.input[id]
+        local targetDx      = (inp.rt and 1 or 0) - (inp.lt and 1 or 0)
 
         -- Horizontal movement: overwrite dx every frame from input
-        w.velocity[id].dx = targetDx * w.speed[id].value
+        w.velocity[id].dx   = targetDx * w.speed[id].value
 
-        -- Jump: upward impulse only when pressing up AND standing on solid ground
-        if inp.up and not inp.prevUp and w.grounded[id] and w.grounded[id].value then
+        -- Jump: fires on the press-edge (false→true) OR when a buffered press is still
+        -- active. Allows jumping for COYOTE_TIME seconds after walking off a ledge.
+        local isGroundedNow = w.grounded[id] and w.grounded[id].value
+        local hasCoyote     = (inp.coyoteTime or 0) > 0
+        local wantsJump     = (inp.up and not inp.prevUp) or ((inp.jumpBuffer or 0) > 0)
+        if wantsJump and (isGroundedNow or hasCoyote) then
             w.velocity[id].dy = -JUMP_SPEED
+            inp.jumpBuffer    = 0 -- consume buffer
+            inp.coyoteTime    = 0 -- consume coyote window
         end
-
         if inp.dn and w.grounded[id] and w.grounded[id].value == false then
             w.velocity[id].dy = w.velocity[id].dy + 10
         end
-
 
         w.facing[id].dir = FM.cos(inp.aimAngle) >= 0 and 1 or -1
 
@@ -442,17 +448,13 @@ function Systems.draw(w, alpha)
         for _, id in ipairs(World.query(w, C.Name.position, C.Name.collider)) do
             local pos = w.position[id]
             local col = w.collider[id]
-
-            love.graphics.setColor(1, 1, 0, 0.5) -- Yellow with 50% alpha
+            love.graphics.setColor(1, 0, 0, 0.5)
             if col.shape == "circle" then
-                love.graphics.circle("line", pos.x, pos.y, col.radius)
+                love.graphics.circle("fill", pos.x, pos.y, col.radius)
             elseif col.shape == "rect" then
-                love.graphics.rectangle("line",
-                    pos.x - col.w * 0.5,
-                    pos.y - col.h * 0.5,
-                    col.w, col.h
-                )
+                love.graphics.rectangle("fill", pos.x - col.w * 0.5, pos.y - col.h * 0.5, col.w, col.h)
             end
+            love.graphics.setColor(1, 1, 1)
         end
     end
 end
@@ -616,6 +618,10 @@ function Systems.applyGravity(w, dt)
         local isGrounded = w.grounded[id] and w.grounded[id].value
         if not isGrounded then
             w.velocity[id].dy = w.velocity[id].dy + w.gravity[id].g * dt
+            -- Terminal velocity: prevents tunnelling through thin platforms on long falls
+            if w.velocity[id].dy > MAX_FALL_SPEED then
+                w.velocity[id].dy = MAX_FALL_SPEED
+            end
         else
             if w.velocity[id].dy > 0 then
                 w.velocity[id].dy = 0
@@ -632,10 +638,6 @@ function Systems.updateGrounded(w)
 
     local solids = World.query(w, C.Name.solid, C.Name.position, C.Name.collider)
     for _, id in ipairs(World.query(w, C.Name.grounded, C.Name.position, C.Name.collider)) do
-        if w.velocity[id] and w.velocity[id].dy < 0 then
-            goto skip_entity
-        end
-
         -- The margin: check 1 pixel below the entity
         local checkY = w.position[id].y + 1
 
@@ -655,7 +657,31 @@ function Systems.updateGrounded(w)
 
             ::next_solid::
         end
-        ::skip_entity::
+    end
+end
+
+---Ticks coyote time and jump buffer for entities that can jump.
+--- Must run AFTER updateGrounded so grounded.value is current.
+---@param w World
+---@param dt number
+function Systems.updateJumpTimers(w, dt)
+    for _, id in ipairs(World.query(w, C.Name.input, C.Name.grounded)) do
+        local inp        = w.input[id]
+        local isGrounded = w.grounded[id].value
+
+        -- Coyote time: full while grounded, drains once airborne
+        if isGrounded then
+            inp.coyoteTime = COYOTE_TIME
+        else
+            inp.coyoteTime = math.max((inp.coyoteTime or 0) - dt, 0)
+        end
+
+        -- Jump buffer: set when jump is pressed mid-air (edge only)
+        if inp.up and not inp.prevUp and not isGrounded then
+            inp.jumpBuffer = JUMP_BUFFER_TIME
+        else
+            inp.jumpBuffer = math.max((inp.jumpBuffer or 0) - dt, 0)
+        end
     end
 end
 
@@ -673,6 +699,7 @@ function Systems.runSystems(w, frameInputs, localPlayerIndex, FIXED_DT)
     Systems.death(w)
     Systems.collisionResolution(w)
     Systems.updateGrounded(w)
+    Systems.updateJumpTimers(w, FIXED_DT)
     Systems.animation(w, FIXED_DT)
     Systems.presentEffects(w, localPlayerIndex)
     Systems.lifetime(w, FIXED_DT)
