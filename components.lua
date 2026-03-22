@@ -20,8 +20,10 @@ local C = {}
 ---@field playerIndex string
 ---@field hp          string
 ---@field soundEvent  string
----@field shakeEvent string
----@field gravity string
+---@field shakeEvent  string
+---@field gravity     string
+---@field grounded    string
+
 C.Name = {
     position    = "position",
     velocity    = "velocity",
@@ -41,7 +43,12 @@ C.Name = {
     soundEvent  = "soundEvent",
     shakeEvent  = "shakeEvent",
     gravity     = "gravity",
+    grounded    = "grounded",
 }
+
+function C.grounded()
+    return { value = false }
+end
 
 function C.playerIndex(index)
     return { index = index }
@@ -75,8 +82,19 @@ function C.facing(dir)
     return { dir = dir or 1 }
 end
 
-function C.collider(radius)
-    return { radius = radius }
+---Creates a circle collider
+---@param radius number
+---@return table
+function C.circleCollider(radius)
+    return { shape = "circle", radius = radius }
+end
+
+---Creates a rectangle collider. Position is treated as the center.
+---@param w number
+---@param h number
+---@return table
+function C.rectCollider(w, h)
+    return { shape = "rect", w = w, h = h }
 end
 
 function C.gun(maxCooldown, damage, bulletSpeed, bulletCount, spread)

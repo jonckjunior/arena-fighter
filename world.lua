@@ -12,7 +12,7 @@ local STANDARD_GRAVITY = 600
 ---@field speed table<integer, {value: number}>
 ---@field facing table<integer, {dir: number}>
 ---@field solid table
----@field collider table<integer, {radius: number}>
+---@field collider table<integer, {shape: "circle"|"rect", radius: number|nil, w: number|nil, h: number|nil}>
 ---@field gun table<integer, {cooldown: number, maxCooldown: number, damage: number, bulletSpeed: number}>
 ---@field bullet table<integer, {ownerId: integer, damage: number}>
 ---@field lifetime table<integer, {ttl: number}>
@@ -23,6 +23,7 @@ local STANDARD_GRAVITY = 600
 ---@field soundEvent table<integer, {soundPath: string, x: number, y: number, playerIndex: integer}>
 ---@field shakeEvent table<integer, {intensity: number, duration: number, playerIndex: integer}>
 ---@field gravity table<integer, {g: number}>
+---@field grounded table<integer, {value: boolean}>
 ---@field map love.Image
 ---@field mapWidth  number
 ---@field mapHeight number

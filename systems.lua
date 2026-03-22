@@ -6,8 +6,111 @@ local FM       = require "fixedmath"
 
 local rng      = love.math.newRandomGenerator(12345)
 
+-- ── Collision helpers ─────────────────────────────────────────────────────────
+-- All collision functions treat position as the CENTER of the shape.
+--
+-- getCollisionMTV returns (overlap, nx, ny):
+--   overlap > 0  → shapes are penetrating; push A by (nx*overlap, ny*overlap) to resolve
+--   overlap == 0 → no contact
+--
+-- overlaps is a cheap boolean wrapper used where the MTV isn't needed.
+
+---Circle vs rect MTV. Pushes circle out of rect.
+---@param cx number  circle center x
+---@param cy number  circle center y
+---@param r  number  circle radius
+---@param rx number  rect center x
+---@param ry number  rect center y
+---@param rw number  rect width
+---@param rh number  rect height
+---@return number overlap, number nx, number ny
+local function circleRectMTV(cx, cy, r, rx, ry, rw, rh)
+    local halfW = rw * 0.5
+    local halfH = rh * 0.5
+    -- Closest point on rect boundary to circle center
+    local nearX = math.max(rx - halfW, math.min(cx, rx + halfW))
+    local nearY = math.max(ry - halfH, math.min(cy, ry + halfH))
+    local dx    = cx - nearX
+    local dy    = cy - nearY
+    local dist  = math.sqrt(dx * dx + dy * dy)
+    if dist >= r then return 0, 0, 0 end
+    if dist > 0 then
+        return r - dist, dx / dist, dy / dist
+    else
+        -- Circle center is fully inside the rect: push out along the shortest axis
+        local ox = halfW - math.abs(cx - rx)
+        local oy = halfH - math.abs(cy - ry)
+        if ox < oy then
+            local sign = cx >= rx and 1 or -1
+            return ox + r, sign, 0
+        else
+            local sign = cy >= ry and 1 or -1
+            return oy + r, 0, sign
+        end
+    end
+end
+
+---Returns the MTV to push shape A out of shape B.
+---@param ax number  A center x
+---@param ay number  A center y
+---@param ca table   A collider component
+---@param bx number  B center x
+---@param by number  B center y
+---@param cb table   B collider component
+---@return number overlap, number nx, number ny
+local function getCollisionMTV(ax, ay, ca, bx, by, cb)
+    local sa, sb = ca.shape, cb.shape
+    assert(sa, "collider A is missing shape field")
+    assert(sb, "collider B is missing shape field")
+
+    if sa == "circle" and sb == "circle" then
+        local dx   = ax - bx
+        local dy   = ay - by
+        local dist = math.sqrt(dx * dx + dy * dy)
+        local minD = ca.radius + cb.radius
+        if dist < minD then
+            if dist > 0 then
+                return minD - dist, dx / dist, dy / dist
+            else
+                return minD, 1, 0 -- degenerate: same center, pick arbitrary axis
+            end
+        end
+    elseif sa == "circle" and sb == "rect" then
+        return circleRectMTV(ax, ay, ca.radius, bx, by, cb.w, cb.h)
+    elseif sa == "rect" and sb == "circle" then
+        -- Reuse circle-rect, then flip normal so it pushes A (the rect) out
+        local overlap, nx, ny = circleRectMTV(bx, by, cb.radius, ax, ay, ca.w, ca.h)
+        return overlap, -nx, -ny
+    elseif sa == "rect" and sb == "rect" then
+        local halfAW = ca.w * 0.5
+        local halfAH = ca.h * 0.5
+        local halfBW = cb.w * 0.5
+        local halfBH = cb.h * 0.5
+        local dx     = ax - bx
+        local dy     = ay - by
+        local ox     = (halfAW + halfBW) - math.abs(dx)
+        local oy     = (halfAH + halfBH) - math.abs(dy)
+        if ox > 0 and oy > 0 then
+            if ox < oy then
+                return ox, dx >= 0 and 1 or -1, 0
+            else
+                return oy, 0, dy >= 0 and 1 or -1
+            end
+        end
+    end
+
+    return 0, 0, 0
+end
+
+---Simple boolean overlap test (no MTV computed beyond the overlap scalar).
+local function overlaps(ax, ay, ca, bx, by, cb)
+    return getCollisionMTV(ax, ay, ca, bx, by, cb) > 0
+end
+
+-- ── Systems ───────────────────────────────────────────────────────────────────
+
 ---@class Systems
-local Systems  = {}
+local Systems = {}
 
 function Systems.gunFollow(w)
     local guns = World.query(w, C.Name.equippedBy, C.Name.position, C.Name.animation)
@@ -207,20 +310,20 @@ function Systems.snapshotPositions(w)
     end
 end
 
----Check collision between a bullet and terrain. If any, destroy bullet
+---Check collision between a bullet and terrain. If any, destroy bullet.
 ---@param w World
 function Systems.bulletTerrainCollision(w)
-    local solids = World.query(w, C.Name.solid, C.Name.position, C.Name.collider)
+    local solids    = World.query(w, C.Name.solid, C.Name.position, C.Name.collider)
     local toDestroy = {}
 
-    local bullets = World.query(w, C.Name.bullet, C.Name.position, C.Name.collider)
+    local bullets   = World.query(w, C.Name.bullet, C.Name.position, C.Name.collider)
     for _, bid in ipairs(bullets) do
+        local bpos = w.position[bid]
+        local bcol = w.collider[bid]
         for _, sid in ipairs(solids) do
-            local dx   = w.position[bid].x - w.position[sid].x
-            local dy   = w.position[bid].y - w.position[sid].y
-            local minD = w.collider[bid].radius + w.collider[sid].radius
-
-            if dx * dx + dy * dy < minD * minD then
+            local spos = w.position[sid]
+            local scol = w.collider[sid]
+            if overlaps(bpos.x, bpos.y, bcol, spos.x, spos.y, scol) then
                 toDestroy[#toDestroy + 1] = bid
                 break -- bullet is gone, no point checking remaining solids
             end
@@ -234,35 +337,24 @@ end
 
 ---@param w World
 function Systems.bulletPlayerCollision(w)
-    -- Collect damageable players once — stable list, iteration order irrelevant
-    -- since we collect all hits before applying any damage or destroys.
-    local players = World.query(w, C.Name.hp, C.Name.position, C.Name.collider)
+    local players   = World.query(w, C.Name.hp, C.Name.position, C.Name.collider)
     local toDestroy = {}
 
-    local bullets = World.query(w, C.Name.bullet, C.Name.position, C.Name.collider)
+    local bullets   = World.query(w, C.Name.bullet, C.Name.position, C.Name.collider)
     for _, bid in ipairs(bullets) do
-        local bullet     = w.bullet[bid]
-        local bullRadius = w.collider[bid].radius
+        local bullet = w.bullet[bid]
+        local bpos   = w.position[bid]
+        local bcol   = w.collider[bid]
+        local hits   = {}
 
-        -- Collect every player this bullet overlaps this frame.
-        -- We don't break early so a large bullet can hit multiple players.
-        local hits       = {}
         for _, pid in ipairs(players) do
             if pid == bullet.ownerId then goto continuePlayer end
-
-            local dx   = w.position[bid].x - w.position[pid].x
-            local dy   = w.position[bid].y - w.position[pid].y
-            local minD = bullRadius + w.collider[pid].radius
-
-            if dx * dx + dy * dy < minD * minD then
+            if overlaps(bpos.x, bpos.y, bcol, w.position[pid].x, w.position[pid].y, w.collider[pid]) then
                 hits[#hits + 1] = pid
             end
             ::continuePlayer::
         end
 
-        -- Apply damage to all hit players, then destroy the bullet.
-        -- Doing this after the loop keeps damage application deterministic:
-        -- every client sees the same hits table in the same order (ipairs).
         if #hits > 0 then
             for _, pid in ipairs(hits) do
                 w.hp[pid].current = w.hp[pid].current - bullet.damage
@@ -375,38 +467,29 @@ function Systems.drawHpBars(w, alpha)
     end
 end
 
----Resolves collisions
+---Resolves collisions between moving entities and solids using the MTV.
 ---@param w World
 function Systems.collisionResolution(w)
-    -- Collect solids once per frame
-    local solids = World.query(w, C.Name.solid, C.Name.position, C.Name.collider)
-    -- Only move entities that have velocity (players, not barrels)
+    local solids      = World.query(w, C.Name.solid, C.Name.position, C.Name.collider)
     local idsToUpdate = World.query(w, C.Name.velocity, C.Name.position, C.Name.collider)
     for _, id in ipairs(idsToUpdate) do
+        if w.bullet[id] then goto nextEntity end
+        local col = w.collider[id]
         for _, sid in ipairs(solids) do
-            if sid == id then goto nextSolid end -- skip self
+            if sid == id then goto nextSolid end
 
-            local ax, ay = w.position[id].x, w.position[id].y
-            local bx, by = w.position[sid].x, w.position[sid].y
-            local ra     = w.collider[id].radius
-            local rb     = w.collider[sid].radius
+            local ax, ay          = w.position[id].x, w.position[id].y
+            local bx, by          = w.position[sid].x, w.position[sid].y
+            local overlap, nx, ny = getCollisionMTV(ax, ay, col, bx, by, w.collider[sid])
 
-            local dx     = ax - bx
-            local dy     = ay - by
-            local dist   = math.sqrt(dx * dx + dy * dy)
-            local minD   = ra + rb
-
-            if dist < minD and dist > 0 then
-                -- Push moving entity out along collision normal
-                local nx = dx / dist
-                local ny = dy / dist
-                local overlap = minD - dist
+            if overlap > 0 then
                 w.position[id].x = w.position[id].x + nx * overlap
                 w.position[id].y = w.position[id].y + ny * overlap
             end
 
             ::nextSolid::
         end
+        ::nextEntity::
     end
 end
 
@@ -507,19 +590,54 @@ function Systems.shakeEvent(w, localPlayerIndex)
 end
 
 function Systems.applyGravity(w, dt)
-    local gravityIds = World.query(w, C.Name.gravity, C.Name.velocity)
-    for _, id in ipairs(gravityIds) do
-        local vel = w.velocity[id]
-        vel.dy = vel.dy + w.gravity[id].g * dt
+    for _, id in ipairs(World.query(w, C.Name.gravity, C.Name.velocity)) do
+        local isGrounded = w.grounded[id] and w.grounded[id].value
+        if not isGrounded then
+            w.velocity[id].dy = w.velocity[id].dy + w.gravity[id].g * dt
+        else
+            if w.velocity[id].dy > 0 then
+                w.velocity[id].dy = 0
+            end
+        end
+    end
+end
+
+function Systems.updateGrounded(w)
+    -- clear grounded for everyone first
+    for _, id in ipairs(World.query(w, C.Name.grounded)) do
+        w.grounded[id].value = false
+    end
+
+    local solids = World.query(w, C.Name.solid, C.Name.position, C.Name.collider)
+    for _, id in ipairs(World.query(w, C.Name.grounded, C.Name.position, C.Name.collider)) do
+        -- The margin: check 1 pixel below the entity
+        local checkY = w.position[id].y + 1
+
+        for _, sid in ipairs(solids) do
+            if id == sid then goto next_solid end
+
+            local overlap, nx, ny = getCollisionMTV(
+                w.position[id].x, checkY, w.collider[id],
+                w.position[sid].x, w.position[sid].y, w.collider[sid]
+            )
+
+            -- If shifting them down 1 pixel causes an upward overlap, we are on the ground
+            if overlap > 0 and ny < -0.5 then
+                w.grounded[id].value = true
+                break
+            end
+
+            ::next_solid::
+        end
     end
 end
 
 function Systems.runSystems(w, frameInputs, localPlayerIndex, FIXED_DT)
     Systems.applyInputs(w, frameInputs)
     Systems.snapshotPositions(w)
+    Systems.applyGravity(w, FIXED_DT)
     Systems.inputToVelocity(w, FIXED_DT)
     Systems.applyVelocity(w, FIXED_DT)
-    Systems.applyGravity(w, FIXED_DT)
     Systems.gunCooldown(w)
     Systems.gunFollow(w)
     Systems.firing(w)
@@ -527,6 +645,7 @@ function Systems.runSystems(w, frameInputs, localPlayerIndex, FIXED_DT)
     Systems.bulletTerrainCollision(w)
     Systems.death(w)
     Systems.collisionResolution(w)
+    Systems.updateGrounded(w)
     Systems.animation(w, FIXED_DT)
     Systems.presentEffects(w, localPlayerIndex)
     Systems.lifetime(w, FIXED_DT)

@@ -41,11 +41,12 @@ function Spawners.player(w, x, y, index)
         love.graphics.newImage("Assets/Sprites/Players/Tiles/tile_0002.png"),
     }, 0.15)
     w.facing[id]      = C.facing(1)
-    w.collider[id]    = C.collider(9)
+    w.collider[id]    = C.circleCollider(9)
     w.drawLayer[id]   = C.drawLayer(1)
     w.playerIndex[id] = C.playerIndex(index)
     w.hp[id]          = C.hp(100)
     w.gravity[id]     = C.gravity(w.STANDARD_GRAVITY * 0.4)
+    w.grounded[id]    = C.grounded()
     return id
 end
 
@@ -79,7 +80,7 @@ function Spawners.bullet(w, ownerId, x, y, vx, vy, damage)
     local id                  = World.newEntity(w)
     w.position[id]            = C.position(x, y)
     w.velocity[id]            = C.velocity(vx, vy)
-    w.collider[id]            = C.collider(3)
+    w.collider[id]            = C.circleCollider(3)
     w.bullet[id]              = C.bullet(ownerId, damage)
     w.lifetime[id]            = C.lifetime(2.0)
     w.animation[id]           = C.animation({
@@ -110,7 +111,7 @@ end
 function Spawners.wall(w, x, y)
     local id        = World.newEntity(w)
     w.position[id]  = C.position(x, y)
-    w.collider[id]  = C.collider(9)
+    w.collider[id]  = C.rectCollider(16, 16)
     w.solid[id]     = true
     w.animation[id] = C.animation({
         love.graphics.newImage("Assets/Sprites/Tiles/Tiles/tile_0222.png")
@@ -129,6 +130,9 @@ function Spawners.fromMapDef(mapDef)
     for i, sp in ipairs(mapDef.spawnPoints) do
         local pid = Spawners.player(w, sp.x, sp.y, i)
         Spawners.gun(w, pid, "ak47")
+    end
+    for i = 1, 100 do
+        Spawners.wall(w, i * 16, 300)
     end
     return w
 end
