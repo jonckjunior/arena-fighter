@@ -150,6 +150,14 @@ function Spawners.fromMapDef(mapDef)
         Spawners.wall(w, 16, i * 16)
     end
 
+    for i = 1, 100 do
+        Spawners.wall(w, 400, i * 16)
+    end
+
+    for i = 1, 100 do
+        Spawners.wall(w, i * 16, 0)
+    end
+
     return w
 end
 
