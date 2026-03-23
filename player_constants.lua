@@ -30,7 +30,7 @@ local PLAYER_CONSTANTS = {
 
     -- Jump feel (frame-based, deterministic on fixed timestep)
     COYOTE_FRAMES              = 18, -- frames after leaving ground where jump is still allowed
-    JUMP_BUFFER_FRAMES         = 6,  -- frames of input history to scan for a buffered jump
+    JUMP_BUFFER_FRAMES         = 12, -- frames of input history to scan for a buffered jump
     JUMP_COOLDOWN_FRAMES       = 20, -- minimum frames between jumps (prevents double-firing)
 
     -- Input history ring buffer size. Must be >= JUMP_BUFFER_FRAMES.

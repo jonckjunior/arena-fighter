@@ -14,8 +14,10 @@ local SystemsPhysics   = {}
 ---@return boolean
 local function jumpBuffered(inp, frames)
     local limit = math.min(frames, #inp.inputHistory)
-    for i = 1, limit do
-        if inp.inputHistory[i].up then return true end
+    local foundFalse = false
+    for i = limit, 1, -1 do
+        if inp.inputHistory[i].up == false then foundFalse = true end
+        if inp.inputHistory[i].up and foundFalse then return true end
     end
     return false
 end
