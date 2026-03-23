@@ -23,7 +23,7 @@ local STANDARD_GRAVITY = 600
 ---@field soundEvent table<integer, {soundPath: string, x: number, y: number, playerIndex: integer}>
 ---@field shakeEvent table<integer, {intensity: number, duration: number, playerIndex: integer}>
 ---@field gravity table<integer, {g: number}>
----@field grounded table<integer, {value: boolean}>
+---@field grounded table<integer, {value: boolean, wallDir: integer}>
 ---@field jumpTimers table<integer, {coyoteTime: number, jumpBuffer: number}>
 ---@field map love.Image
 ---@field mapWidth  number
