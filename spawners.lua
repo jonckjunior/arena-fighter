@@ -169,6 +169,10 @@ function Spawners.fromMapDef(mapDef)
     Spawners.wall(w, 176, 238) -- left-centre cover
     Spawners.wall(w, 304, 238) -- right-centre cover
 
+    for i = 1, 100 do
+        Spawners.wall(w, 16, i * 16)
+    end
+
     return w
 end
 
