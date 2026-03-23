@@ -624,7 +624,7 @@ function Systems.applyGravity(w, dt)
             -- Only for player-controlled entities; bullets fall at full gravity.
             local inp       = w.input[id]
             local nearApex  = math.abs(w.velocity[id].dy) < PLAYER_CONSTANTS.HALF_GRAVITY_THRESHOLD
-            local gravScale = (inp and nearApex) and 0.8 or 1.0
+            local gravScale = (inp and nearApex) and PLAYER_CONSTANTS.GRAVITY_NEAR_PEAK or 1.0
 
             -- Fast fall: holding down while already falling adds extra pull
             if inp and inp.dn and w.velocity[id].dy > 0 then
