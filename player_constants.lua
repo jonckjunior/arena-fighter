@@ -19,6 +19,7 @@ local PLAYER_CONSTANTS = {
     HP                     = 100,  -- player's hp
     SPEED                  = 120,  -- player's speed
     GRAVITY_NEAR_PEAK      = 0.8,  -- player's gravity near the peak of their jump
+    FALL_FASTER_FORCE      = 10,   -- when the player presses down while in the air, they fall faster by this force
 }
 
 return PLAYER_CONSTANTS

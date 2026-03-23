@@ -289,7 +289,7 @@ function Systems.inputToVelocity(w, dt)
             end
         end
         if inp.dn and w.grounded[id] and w.grounded[id].value == false then
-            w.velocity[id].dy = w.velocity[id].dy + 10
+            w.velocity[id].dy = w.velocity[id].dy + PLAYER_CONSTANTS.FALL_FASTER_FORCE
         end
 
         w.facing[id].dir = FM.cos(inp.aimAngle) >= 0 and 1 or -1
