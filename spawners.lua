@@ -13,6 +13,8 @@ Spawners.GunDefs       = {
         bulletCount = 1,
         spread      = 0,
         sprite      = "Assets/Sprites/Weapons/Tiles/tile_0000.png",
+        maxAmmo     = 3,
+        reloadTime  = 1.5, -- seconds
     },
     ak47 = {
         maxCooldown = 15,
@@ -21,6 +23,8 @@ Spawners.GunDefs       = {
         bulletCount = 1,
         spread      = 0,
         sprite      = "Assets/Sprites/Weapons/Tiles/tile_0005.png",
+        maxAmmo     = 30,
+        reloadTime  = 2.0,
     },
 }
 
@@ -62,7 +66,12 @@ function Spawners.gun(w, ownerId, defName)
     assert(w.position[ownerId])
     w.position[id]   = C.position(w.position[ownerId].x, w.position[ownerId].y)
     w.equippedBy[id] = C.equippedBy(ownerId)
-    w.gun[id]        = C.gun(def.maxCooldown, def.damage, def.bulletSpeed, def.bulletCount, def.spread)
+    w.gun[id]        = C.gun(def.maxCooldown, def.damage, def.bulletSpeed, def.bulletCount, def.spread) -- In Spawners.gun(), pass the new fields:
+    w.gun[id]        = C.gun(
+        def.maxCooldown, def.damage, def.bulletSpeed,
+        def.bulletCount, def.spread,
+        def.maxAmmo, def.reloadTime
+    )
     w.animation[id]  = C.animation({ love.graphics.newImage(def.sprite) }, 0.1)
     w.drawLayer[id]  = C.drawLayer(2)
     return id

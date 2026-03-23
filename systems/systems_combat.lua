@@ -66,7 +66,9 @@ function SystemsCombat.firing(w)
         local inp     = w.input[ownerId]
         if not inp then goto continue end
 
-        if inp.fire and gun.cooldown == 0 then
+        if inp.fire and gun.cooldown == 0
+            and not gun.isReloading
+            and gun.currentAmmo > 0 then
             local angle   = inp.aimAngle
             local iw      = anim.frames[anim.current]:getWidth()
             local muzzleX = gunPos.x + FM.cos(angle) * (iw / 2)
@@ -80,7 +82,8 @@ function SystemsCombat.firing(w)
                     FM.sin(a) * gun.bulletSpeed,
                     gun.damage)
             end
-            gun.cooldown = gun.maxCooldown
+            gun.currentAmmo = gun.currentAmmo - gun.bulletCount -- ← new, deduct after firing
+            gun.cooldown    = gun.maxCooldown
         end
         ::continue::
     end
@@ -205,6 +208,36 @@ function SystemsCombat.getRoundWinner(w)
         return w.playerIndex[alive[1]].index
     end
     return -1
+end
+
+---Handles manual reload (press key) and auto-reload on empty magazine.
+---@param w World
+---@param dt number
+function SystemsCombat.reload(w, dt)
+    local guns = World.query(w, C.Name.gun, C.Name.equippedBy)
+    for _, gid in ipairs(guns) do
+        local gun         = w.gun[gid]
+        local ownerId     = w.equippedBy[gid].ownerId
+        local inp         = w.input[ownerId]
+
+        -- Trigger reload: manual key press OR mag is empty (and not already reloading)
+        local wantsReload = inp and inp.reload
+        local isEmpty     = gun.currentAmmo <= 0
+        if not gun.isReloading and (wantsReload or isEmpty) and gun.currentAmmo < gun.maxAmmo then
+            gun.isReloading = true
+            gun.reloadTimer = gun.reloadTime
+        end
+
+        -- Tick the reload timer
+        if gun.isReloading then
+            gun.reloadTimer = gun.reloadTimer - dt
+            if gun.reloadTimer <= 0 then
+                gun.currentAmmo = gun.maxAmmo
+                gun.isReloading = false
+                gun.reloadTimer = 0
+            end
+        end
+    end
 end
 
 return SystemsCombat

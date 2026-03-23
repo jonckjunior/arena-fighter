@@ -28,6 +28,7 @@ function SystemsInput.gatherLocalInput(playerIndex, w, mx, my, USE_NETWORK)
             lt       = love.keyboard.isDown("a"),
             rt       = love.keyboard.isDown("d"),
             fire     = love.mouse.isDown(1),
+            reload   = love.keyboard.isDown("r"),
             aimAngle = 0,
         }
     else
@@ -37,6 +38,7 @@ function SystemsInput.gatherLocalInput(playerIndex, w, mx, my, USE_NETWORK)
             lt       = love.keyboard.isDown("h"),
             rt       = love.keyboard.isDown("k"),
             fire     = love.keyboard.isDown("space"),
+            reload   = love.keyboard.isDown("r"),
             aimAngle = 0,
         }
     end
@@ -77,6 +79,7 @@ function SystemsInput.applyInputs(w, frameInputs)
         w.input[id].lt       = inp.lt
         w.input[id].rt       = inp.rt
         w.input[id].fire     = inp.fire
+        w.input[id].reload   = inp.reload
         w.input[id].aimAngle = inp.aimAngle
 
         -- Prepend snapshot to history, trim to historySize.
@@ -88,6 +91,7 @@ function SystemsInput.applyInputs(w, frameInputs)
             lt       = inp.lt,
             rt       = inp.rt,
             fire     = inp.fire,
+            reload   = inp.reload,
             aimAngle = inp.aimAngle,
         })
         if #history > w.input[id].historySize then

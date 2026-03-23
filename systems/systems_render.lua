@@ -113,4 +113,42 @@ function SystemsRender.drawHpBars(w, alpha)
     end
 end
 
+function SystemsRender.drawReloadBars(w, alpha)
+    local BAR_W  = 24
+    local BAR_H  = 2
+    local OFFSET = -10 -- just below the HP bar
+
+    local guns   = World.query(w, C.Name.gun, C.Name.equippedBy)
+    for _, gid in ipairs(guns) do
+        local gun     = w.gun[gid]
+        local ownerId = w.equippedBy[gid].ownerId
+        local pos     = w.position[ownerId]
+        if not pos then goto continue end
+
+        local rx   = pos.px + (pos.x - pos.px) * alpha
+        local ry   = pos.py + (pos.y - pos.py) * alpha
+        local left = rx - BAR_W / 2
+        local top  = ry + OFFSET
+
+        if gun.isReloading then
+            -- Show reload progress in yellow
+            local progress = 1 - (gun.reloadTimer / gun.reloadTime)
+            love.graphics.setColor(0.2, 0.2, 0.2)
+            love.graphics.rectangle("fill", left, top, BAR_W, BAR_H)
+            love.graphics.setColor(1, 0.85, 0)
+            love.graphics.rectangle("fill", left, top, BAR_W * progress, BAR_H)
+        else
+            -- Show ammo count as a segmented bar
+            local fill = gun.currentAmmo / gun.maxAmmo
+            love.graphics.setColor(0.2, 0.2, 0.2)
+            love.graphics.rectangle("fill", left, top, BAR_W, BAR_H)
+            love.graphics.setColor(0.3, 0.6, 1)
+            love.graphics.rectangle("fill", left, top, BAR_W * fill, BAR_H)
+        end
+
+        love.graphics.setColor(1, 1, 1)
+        ::continue::
+    end
+end
+
 return SystemsRender

@@ -82,7 +82,7 @@ local function initCameraAndCursor()
 end
 
 local function initNetwork()
-    network.USE_NETWORK  = false
+    network.USE_NETWORK  = true
     network.RELAY_HOST   = "localhost"
     network.RELAY_PORT   = 22122
     network.NUM_PLAYERS  = 2
@@ -244,13 +244,13 @@ local function tickMatchOver(keysPressed)
             rt = false,
             fire = false,
             aimAngle = 0,
-            restart = state.localWantsRestart,
+            reload = state.localWantsRestart,
         }
         local frameInputs = Lockstep.tick(network.ls, inp)
         if frameInputs then
             local allReady = true
             for i = 1, network.NUM_PLAYERS do
-                if not (frameInputs[i] and frameInputs[i].restart) then
+                if not (frameInputs[i] and frameInputs[i].reload) then
                     allReady = false; break
                 end
             end
@@ -331,6 +331,7 @@ function Game.draw(canvas)
     local alpha = (state.gameState == "playing") and (state.accumulator / FIXED_DT) or 1.0
     Systems.draw(state.world, alpha)
     Systems.drawHpBars(state.world, alpha)
+    Systems.drawReloadBars(state.world, alpha)
     --- END OF WORLD DRAW
 
     love.graphics.pop()
@@ -397,7 +398,7 @@ function Game.runHeadlessTest(frames)
             rt = rng:random() > 0.5,
             fire = rng:random() > 0.9,
             aimAngle = (rng:random() - 0.5) * math.pi * 2,
-            restart = false,
+            reload = false,
         }
     end
     network.USE_NETWORK = false

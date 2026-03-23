@@ -12,6 +12,7 @@ local Systems            = {}
 Systems.gatherLocalInput = SInput.gatherLocalInput
 Systems.draw             = SRender.draw
 Systems.drawHpBars       = SRender.drawHpBars
+Systems.drawReloadBars   = SRender.drawReloadBars
 Systems.shakeEvent       = SEffects.shakeEvent
 Systems.isRoundOver      = SCombat.isRoundOver
 Systems.getRoundWinner   = SCombat.getRoundWinner
@@ -55,6 +56,7 @@ function Systems.runSystems(w, frameInputs, localPlayerIndex, dt)
     SPhysics.applyVelocity(w, dt)
     SCombat.gunCooldown(w)
     SCombat.gunFollow(w)
+    SCombat.reload(w, dt)
     SCombat.firing(w)
     SCombat.bulletPlayerCollision(w)
     SCombat.bulletTerrainCollision(w)
