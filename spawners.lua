@@ -155,10 +155,10 @@ function Spawners.fromMapDef(mapDef)
     row(8, 472, 254)
 
     -- Left side platform (6 tiles, x 64–144)
-    row(64, 144, 222)
+    row(64, 144, 222 - 16)
 
     -- Right side platform (6 tiles, x 336–416)
-    row(336, 416, 222)
+    row(336, 416, 222 - 16)
 
     -- Centre raised platform (6 tiles, x 200–280)
     row(200, 280, 190)
