@@ -1,8 +1,8 @@
-local SInput             = require "systems_input"
-local SPhysics           = require "systems_physics"
-local SCombat            = require "systems_combat"
-local SRender            = require "systems_render"
-local SEffects           = require "systems_effects"
+local SInput             = require "systems/systems_input"
+local SPhysics           = require "systems/systems_physics"
+local SCombat            = require "systems/systems_combat"
+local SRender            = require "systems/systems_render"
+local SEffects           = require "systems/systems_effects"
 
 ---@class Systems
 local Systems            = {}
