@@ -34,8 +34,8 @@ function Spawners.player(w, x, y, index)
     local id          = World.newEntity(w)
     w.position[id]    = C.position(x, y)
     w.velocity[id]    = C.velocity()
-    w.speed[id]       = C.speed(120)
-    w.input[id]       = C.input()
+    w.speed[id]       = C.speed(PLAYER_CONSTANTS.SPEED)
+    w.input[id]       = C.input(PLAYER_CONSTANTS.INPUT_HISTORY_FRAMES)
     w.animation[id]   = C.animation({
         love.graphics.newImage("Assets/Sprites/Players/Tiles/tile_0000.png"),
         love.graphics.newImage("Assets/Sprites/Players/Tiles/tile_0001.png"),
@@ -48,7 +48,6 @@ function Spawners.player(w, x, y, index)
     w.hp[id]          = C.hp(PLAYER_CONSTANTS.HP)
     w.gravity[id]     = C.gravity(PLAYER_CONSTANTS.GRAVITY)
     w.grounded[id]    = C.grounded()
-    w.jumpTimers[id]  = C.jumpTimers(PLAYER_CONSTANTS.COYOTE_TIME, PLAYER_CONSTANTS.JUMP_BUFFER_TIME)
     return id
 end
 
@@ -99,13 +98,13 @@ function Spawners.bullet(w, ownerId, x, y, vx, vy, damage)
 end
 
 function Spawners.soundEvent(w, soundPath, x, y, playerIndex)
-    local id = World.newEntity(w)
+    local id         = World.newEntity(w)
     w.soundEvent[id] = C.soundEvent(soundPath, x, y, playerIndex)
     return id
 end
 
 function Spawners.shakeEvent(w, intensity, duration, playerIndex)
-    local id = World.newEntity(w)
+    local id         = World.newEntity(w)
     w.shakeEvent[id] = C.shakeEvent(intensity, duration, playerIndex)
     return id
 end
@@ -134,40 +133,18 @@ function Spawners.fromMapDef(mapDef)
         Spawners.gun(w, pid, "pistol")
     end
 
-    -- Spawn a horizontal strip of wall tiles from x1 to x2 (step 16) at height y
     local function row(x1, x2, y)
         for x = x1, x2, 16 do
             Spawners.wall(w, x, y)
         end
     end
 
-    -- ── Arena layout (480 × 270 viewport) ──────────────────────────────────
-    --
-    --           [   center platform   ]          y = 190
-    --   [ left platform ]       [ right platform ]   y = 222  (+32)
-    --                   [cov]   [cov]                y = 238  (on floor)
-    -- [================== floor ===================] y = 254  (+32)
-    --
-    -- Every vertical step is 32px. Jump apex with JUMP_SPEED=150, gravity=240
-    -- is ~47px, so every platform is safely reachable in one jump.
-
-    -- Floor — full viewport width
     row(8, 472, 254)
-
-    -- Left side platform (6 tiles, x 64–144)
     row(64, 144, 222 - 16)
-
-    -- Right side platform (6 tiles, x 336–416)
     row(336, 416, 222 - 16)
-
-    -- Centre raised platform (6 tiles, x 200–280)
     row(200, 280, 190)
-
-    -- Two single-tile cover blocks sitting on the floor.
-    -- They block sight lines across the middle of the arena and give
-    -- players something to duck behind without fully blocking movement.
-    Spawners.wall(w, 176, 238) -- left-centre cover
-    Spawners.wall(w, 304, 238) -- right-centre cover
+    Spawners.wall(w, 176, 238)
+    Spawners.wall(w, 304, 238)
 
     for i = 1, 100 do
         Spawners.wall(w, 16, i * 16)

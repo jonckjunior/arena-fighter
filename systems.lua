@@ -7,7 +7,7 @@ local SEffects           = require "systems/systems_effects"
 ---@class Systems
 local Systems            = {}
 
--- ── Re-export sub-system functions that game.lua calls directly ───────────────
+-- ── Re-export functions that game.lua calls directly ─────────────────────────
 
 Systems.gatherLocalInput = SInput.gatherLocalInput
 Systems.draw             = SRender.draw
@@ -17,8 +17,24 @@ Systems.isRoundOver      = SCombat.isRoundOver
 Systems.getRoundWinner   = SCombat.getRoundWinner
 
 -- ── Fixed-tick simulation loop ────────────────────────────────────────────────
+--
+-- Ordering rationale:
+--   applyInputs          — write raw input + history before anything reads it
+--   snapshotPositions    — record pre-physics positions for interpolated rendering
+--   applyGravity         — accumulate vertical force before movement resolves it
+--   applyHorizontalMovement — set dx from input
+--   applyJump            — reads framesSinceGrounded (prev frame) + history → sets dy
+--   applyVariableJumpCutoff — clamps dy on early key release
+--   playerMove           — sweeps position, resolves contacts, writes grounded + wallDir
+--   updateGroundedTimer  — reads fresh grounded.value → updates framesSinceGrounded
+--   applyVelocity        — moves non-player entities (bullets)
+--   combat               — guns, bullets, damage, death, lifetime
+--   updateFacing         — cosmetic, reads aimAngle
+--   updateWalkAnimation  — cosmetic, reads velocity + grounded
+--   animation            — advances sprite frames
+--   presentEffects       — audio
+--   lifetime             — cleans up expired entities
 
----Runs all simulation systems for one fixed timestep.
 ---@param w World
 ---@param frameInputs table
 ---@param localPlayerIndex integer
@@ -27,8 +43,11 @@ function Systems.runSystems(w, frameInputs, localPlayerIndex, dt)
     SInput.applyInputs(w, frameInputs)
     SPhysics.snapshotPositions(w)
     SPhysics.applyGravity(w, dt)
-    SPhysics.inputToVelocity(w, dt)
+    SPhysics.applyHorizontalMovement(w)
+    SPhysics.applyJump(w)
+    SPhysics.applyVariableJumpCutoff(w)
     SPhysics.playerMove(w, dt)
+    SPhysics.updateGroundedTimer(w)
     SPhysics.applyVelocity(w, dt)
     SCombat.gunCooldown(w)
     SCombat.gunFollow(w)
@@ -36,7 +55,8 @@ function Systems.runSystems(w, frameInputs, localPlayerIndex, dt)
     SCombat.bulletPlayerCollision(w)
     SCombat.bulletTerrainCollision(w)
     SCombat.death(w)
-    SPhysics.updateJumpTimers(w, dt)
+    SRender.updateFacing(w)
+    SRender.updateWalkAnimation(w)
     SRender.animation(w, dt)
     SEffects.presentEffects(w, localPlayerIndex)
     SCombat.lifetime(w, dt)

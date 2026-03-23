@@ -8,7 +8,7 @@ local STANDARD_GRAVITY = 600
 ---@field position table<integer, {x: number, y: number, px: number, py: number}>
 ---@field velocity table<integer, {dx: number, dy: number}>
 ---@field animation table<integer, {frames: table, current: number, timer: number, duration: number, isPlaying: boolean, angle: number | nil, flipY: integer | nil}>
----@field input table<integer, {prevUp:boolean, up: boolean, dn: boolean, lt: boolean, rt: boolean, fire: boolean, aimAngle: number}>
+---@field input table<integer, {up: boolean, dn: boolean, lt: boolean, rt: boolean, fire: boolean, aimAngle: number, inputHistory: table[], historySize: integer}>
 ---@field speed table<integer, {value: number}>
 ---@field facing table<integer, {dir: number}>
 ---@field solid table
@@ -23,8 +23,7 @@ local STANDARD_GRAVITY = 600
 ---@field soundEvent table<integer, {soundPath: string, x: number, y: number, playerIndex: integer}>
 ---@field shakeEvent table<integer, {intensity: number, duration: number, playerIndex: integer}>
 ---@field gravity table<integer, {g: number}>
----@field grounded table<integer, {value: boolean, wallDir: integer}>
----@field jumpTimers table<integer, {coyoteTime: number, jumpBuffer: number}>
+---@field grounded table<integer, {value: boolean, wallDir: integer, framesSinceGrounded: integer, framesSinceJump: integer}>
 ---@field map love.Image
 ---@field mapWidth  number
 ---@field mapHeight number

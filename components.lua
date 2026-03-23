@@ -45,11 +45,31 @@ C.Name = {
     shakeEvent  = "shakeEvent",
     gravity     = "gravity",
     grounded    = "grounded",
-    jumpTimers  = "jumpTimers",
 }
 
 function C.grounded()
-    return { value = false, wallDir = 0 }
+    return {
+        value               = false,
+        wallDir             = 0,   -- -1 = wall on left, 1 = wall on right, 0 = none
+        framesSinceGrounded = 0,   -- increments each airborne frame, resets on landing
+        framesSinceJump     = 999, -- increments every frame, reset to 0 when a jump fires
+    }
+end
+
+---@param historySize integer  number of frames to keep (use PLAYER_CONSTANTS.INPUT_HISTORY_FRAMES)
+function C.input(historySize)
+    return {
+        up           = false,
+        dn           = false,
+        lt           = false,
+        rt           = false,
+        fire         = false,
+        aimAngle     = 0,
+        -- Ring buffer of raw input snapshots, index 1 = most recent frame.
+        -- Each entry is a plain table: { up, dn, lt, rt, fire, aimAngle }
+        inputHistory = {},
+        historySize  = historySize or 30,
+    }
 end
 
 function C.playerIndex(index)
@@ -70,10 +90,6 @@ end
 
 function C.speed(value)
     return { value = value }
-end
-
-function C.input()
-    return { prevUp = false, up = false, dn = false, lt = false, rt = false, fire = false, aimAngle = 0 }
 end
 
 function C.animation(frames, duration)
@@ -136,10 +152,6 @@ end
 
 function C.shakeEvent(intensity, duration, playerIndex)
     return { intensity = intensity, duration = duration, playerIndex = playerIndex }
-end
-
-function C.jumpTimers(coyoteTime, jumpBuffer)
-    return { coyoteTime = coyoteTime, jumpBuffer = jumpBuffer }
 end
 
 return C

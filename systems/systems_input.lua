@@ -60,23 +60,41 @@ function SystemsInput.gatherLocalInput(playerIndex, w, mx, my, USE_NETWORK)
     return inp
 end
 
----Copies frame inputs into each player entity's input component.
---- Also tracks prevUp for jump edge detection.
+---Copies frame inputs into each player's input component and prepends a
+--- raw snapshot to their inputHistory ring buffer.
+--- History index 1 is always the most recent frame.
 ---@param w World
 ---@param frameInputs table
 function SystemsInput.applyInputs(w, frameInputs)
     for _, id in ipairs(World.query(w, C.Name.playerIndex)) do
         local pidx = w.playerIndex[id]
         local inp  = frameInputs[pidx.index]
-        if inp and w.input[id] then
-            w.input[id].prevUp   = w.input[id].up
-            w.input[id].up       = inp.up
-            w.input[id].dn       = inp.dn
-            w.input[id].lt       = inp.lt
-            w.input[id].rt       = inp.rt
-            w.input[id].fire     = inp.fire
-            w.input[id].aimAngle = inp.aimAngle
+        if not (inp and w.input[id]) then goto continue end
+
+        -- Update live input state
+        w.input[id].up       = inp.up
+        w.input[id].dn       = inp.dn
+        w.input[id].lt       = inp.lt
+        w.input[id].rt       = inp.rt
+        w.input[id].fire     = inp.fire
+        w.input[id].aimAngle = inp.aimAngle
+
+        -- Prepend snapshot to history, trim to historySize.
+        -- Index 1 is always the most recent frame.
+        local history        = w.input[id].inputHistory
+        table.insert(history, 1, {
+            up       = inp.up,
+            dn       = inp.dn,
+            lt       = inp.lt,
+            rt       = inp.rt,
+            fire     = inp.fire,
+            aimAngle = inp.aimAngle,
+        })
+        if #history > w.input[id].historySize then
+            table.remove(history)
         end
+
+        ::continue::
     end
 end
 

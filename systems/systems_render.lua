@@ -1,8 +1,31 @@
 local World         = require "world"
 local C             = require "components"
+local FM            = require "fixedmath"
 
 ---@class SystemsRender
 local SystemsRender = {}
+
+---Writes facing direction from aim angle.
+--- Producer: input.aimAngle
+--- Consumer: facing.dir
+---@param w World
+function SystemsRender.updateFacing(w)
+    for _, id in ipairs(World.query(w, C.Name.input, C.Name.facing)) do
+        w.facing[id].dir = FM.cos(w.input[id].aimAngle) >= 0 and 1 or -1
+    end
+end
+
+---Enables walk animation when moving horizontally on the ground.
+--- Producer: velocity.dx, grounded.value
+--- Consumer: animation.isPlaying
+---@param w World
+function SystemsRender.updateWalkAnimation(w)
+    for _, id in ipairs(World.query(w, C.Name.input, C.Name.velocity, C.Name.animation, C.Name.grounded)) do
+        local moving              = w.velocity[id].dx ~= 0
+        local onFloor             = w.grounded[id].value
+        w.animation[id].isPlaying = moving and onFloor
+    end
+end
 
 ---Advances sprite animation timers and cycles frames.
 ---@param w World
