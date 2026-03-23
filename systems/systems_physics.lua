@@ -59,15 +59,20 @@ function SystemsPhysics.applyGravity(w, dt)
     end
 end
 
----Sets horizontal velocity from directional input.
---- Producer: input.lt / input.rt
+---Lerps horizontal velocity toward the input-driven target speed.
+--- On the ground the gap closes quickly (snappy); in the air it closes slowly,
+--- which lets wall-jump (and any other) horizontal impulses bleed off naturally
+--- without a separate lock timer.
+--- Producer: input.lt / input.rt, grounded.value
 --- Consumer: velocity.dx
 ---@param w World
 function SystemsPhysics.applyHorizontalMovement(w)
-    for _, id in ipairs(World.query(w, C.Name.input, C.Name.speed, C.Name.velocity)) do
-        local inp         = w.input[id]
-        local targetDx    = (inp.rt and 1 or 0) - (inp.lt and 1 or 0)
-        w.velocity[id].dx = targetDx * w.speed[id].value
+    for _, id in ipairs(World.query(w, C.Name.input, C.Name.speed, C.Name.velocity, C.Name.grounded)) do
+        local inp    = w.input[id]
+        local target = ((inp.rt and 1 or 0) - (inp.lt and 1 or 0)) * w.speed[id].value
+        local rate   = w.grounded[id].value and PLAYER_CONSTANTS.GROUND_LERP_RATE or PLAYER_CONSTANTS.AIR_LERP_RATE
+        local vel    = w.velocity[id]
+        vel.dx       = vel.dx + (target - vel.dx) * rate
     end
 end
 

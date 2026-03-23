@@ -1,9 +1,10 @@
-local World         = require "world"
-local C             = require "components"
-local FM            = require "fixedmath"
+local World            = require "world"
+local C                = require "components"
+local FM               = require "fixedmath"
+local PLAYER_CONSTANTS = require "player_constants"
 
 ---@class SystemsRender
-local SystemsRender = {}
+local SystemsRender    = {}
 
 ---Writes facing direction from aim angle.
 --- Producer: input.aimAngle
@@ -21,7 +22,7 @@ end
 ---@param w World
 function SystemsRender.updateWalkAnimation(w)
     for _, id in ipairs(World.query(w, C.Name.input, C.Name.velocity, C.Name.animation, C.Name.grounded)) do
-        local moving              = w.velocity[id].dx ~= 0
+        local moving              = math.abs(w.velocity[id].dx) > PLAYER_CONSTANTS.ANIMATION_THRESHOLD_SPEED
         local onFloor             = w.grounded[id].value
         w.animation[id].isPlaying = moving and onFloor
     end

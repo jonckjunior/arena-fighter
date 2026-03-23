@@ -82,7 +82,7 @@ local function initCameraAndCursor()
 end
 
 local function initNetwork()
-    network.USE_NETWORK  = true
+    network.USE_NETWORK  = false
     network.RELAY_HOST   = "localhost"
     network.RELAY_PORT   = 22122
     network.NUM_PLAYERS  = 2
