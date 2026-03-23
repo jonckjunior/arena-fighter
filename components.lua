@@ -53,6 +53,8 @@ function C.grounded()
         wallDir             = 0,   -- -1 = wall on left, 1 = wall on right, 0 = none
         framesSinceGrounded = 0,   -- increments each airborne frame, resets on landing
         framesSinceJump     = 999, -- increments every frame, reset to 0 when a jump fires
+        framesSinceWall     = 999, -- increments each frame not touching a wall, resets on wall contact
+        lastWallDir         = 0,   -- wallDir value from the last frame a wall was touched (-1 or 1)
     }
 end
 

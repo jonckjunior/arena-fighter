@@ -91,6 +91,40 @@ function SystemsPhysics.applyJump(w)
     end
 end
 
+---Fires a wall jump when the player is airborne, near a wall, pressing into it, and presses jump.
+--- Uses the same jump buffer and cooldown as the ground jump.
+--- wallDir / lastWallDir: -1 = wall on left (player presses lt), 1 = wall on right (player presses rt).
+--- Producer: inputHistory, grounded.framesSinceWall, grounded.lastWallDir, grounded.framesSinceJump
+--- Consumer: velocity.dx, velocity.dy
+---@param w World
+function SystemsPhysics.applyWallJump(w)
+    for _, id in ipairs(World.query(w, C.Name.input, C.Name.velocity, C.Name.grounded)) do
+        local inp  = w.input[id]
+        local grnd = w.grounded[id]
+
+        -- Must be airborne — ground jump handles the grounded case.
+        if grnd.value then goto continue end
+
+        local hasWallCoyote    = grnd.framesSinceWall <= PLAYER_CONSTANTS.WALL_COYOTE_FRAMES
+        local offCooldown      = grnd.framesSinceJump >= PLAYER_CONSTANTS.JUMP_COOLDOWN_FRAMES
+        local wantsJump        = jumpBuffered(inp, PLAYER_CONSTANTS.JUMP_BUFFER_FRAMES)
+
+        -- Player must be pressing into the remembered wall side.
+        local pressingIntoWall = (grnd.lastWallDir == -1 and inp.lt)
+            or (grnd.lastWallDir == 1 and inp.rt)
+
+        if wantsJump and hasWallCoyote and offCooldown and pressingIntoWall then
+            -- Vertical impulse identical to a normal jump.
+            w.velocity[id].dy = -PLAYER_CONSTANTS.JUMP_SPEED
+            -- Small horizontal push away from the wall, overriding applyHorizontalMovement.
+            w.velocity[id].dx = -grnd.lastWallDir * PLAYER_CONSTANTS.WALL_JUMP_HORIZONTAL_SPEED
+            grnd.framesSinceJump = 0
+        end
+
+        ::continue::
+    end
+end
+
 ---Cuts upward velocity short when the jump key is released early.
 --- Producer: input.up
 --- Consumer: velocity.dy (clamps upward component)
@@ -108,17 +142,27 @@ function SystemsPhysics.applyVariableJumpCutoff(w)
 end
 
 ---Increments framesSinceGrounded each airborne frame; resets it on landing.
+--- Increments framesSinceWall each frame not in wall contact; resets and snapshots lastWallDir on contact.
 --- Also increments framesSinceJump unconditionally every frame.
---- Must run AFTER playerMove so grounded.value reflects the current frame.
+--- Must run AFTER playerMove so grounded.value and wallDir reflect the current frame.
 ---@param w World
 function SystemsPhysics.updateGroundedTimer(w)
     for _, id in ipairs(World.query(w, C.Name.grounded)) do
         local grnd = w.grounded[id]
+
         if grnd.value then
             grnd.framesSinceGrounded = 0
         else
             grnd.framesSinceGrounded = grnd.framesSinceGrounded + 1
         end
+
+        if grnd.wallDir ~= 0 then
+            grnd.framesSinceWall = 0
+            grnd.lastWallDir     = grnd.wallDir
+        else
+            grnd.framesSinceWall = grnd.framesSinceWall + 1
+        end
+
         grnd.framesSinceJump = grnd.framesSinceJump + 1
     end
 end

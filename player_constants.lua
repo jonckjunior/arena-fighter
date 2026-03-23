@@ -12,26 +12,32 @@
 ---@field JUMP_BUFFER_FRAMES integer
 ---@field INPUT_HISTORY_FRAMES integer
 ---@field JUMP_COOLDOWN_FRAMES integer
+---@field WALL_COYOTE_FRAMES integer
+---@field WALL_JUMP_HORIZONTAL_SPEED number
 
 local PLAYER_CONSTANTS = {
-    JUMP_SPEED             = 160,  -- pixels/s upward impulse
-    MAX_FALL_SPEED         = 300,  -- pixels/s terminal velocity
-    VARIABLE_JUMP_CUTOFF   = 0.35, -- fraction of JUMP_SPEED kept on early key release
-    HALF_GRAVITY_THRESHOLD = 28,   -- |dy| below this → half gravity (hang at apex)
-    FAST_FALL_MULTIPLIER   = 1.3,  -- extra gravity factor when holding down mid-air
-    GRAVITY_NEAR_PEAK      = 1,    -- gravity scale near the apex
-    GRAVITY                = 460,  -- player gravity
-    HP                     = 100,
-    SPEED                  = 120,
+    JUMP_SPEED                 = 160, -- pixels/s upward impulse
+    MAX_FALL_SPEED             = 300, -- pixels/s terminal velocity
+    VARIABLE_JUMP_CUTOFF       = 0.35, -- fraction of JUMP_SPEED kept on early key release
+    HALF_GRAVITY_THRESHOLD     = 28, -- |dy| below this → half gravity (hang at apex)
+    FAST_FALL_MULTIPLIER       = 1.3, -- extra gravity factor when holding down mid-air
+    GRAVITY_NEAR_PEAK          = 1, -- gravity scale near the apex
+    GRAVITY                    = 460, -- player gravity
+    HP                         = 100,
+    SPEED                      = 120,
 
     -- Jump feel (frame-based, deterministic on fixed timestep)
-    COYOTE_FRAMES          = 18, -- frames after leaving ground where jump is still allowed
-    JUMP_BUFFER_FRAMES     = 6,  -- frames of input history to scan for a buffered jump
-    JUMP_COOLDOWN_FRAMES   = 20, -- minimum frames between jumps (prevents double-firing)
+    COYOTE_FRAMES              = 18, -- frames after leaving ground where jump is still allowed
+    JUMP_BUFFER_FRAMES         = 6, -- frames of input history to scan for a buffered jump
+    JUMP_COOLDOWN_FRAMES       = 20, -- minimum frames between jumps (prevents double-firing)
 
     -- Input history ring buffer size. Must be >= JUMP_BUFFER_FRAMES.
     -- Larger values let other systems (e.g. wall jump) look further back.
-    INPUT_HISTORY_FRAMES   = 30,
+    INPUT_HISTORY_FRAMES       = 30,
+
+    -- Wall jump
+    WALL_COYOTE_FRAMES         = 6,   -- frames after leaving a wall where wall jump is still allowed
+    WALL_JUMP_HORIZONTAL_SPEED = 40,  -- pixels/s push away from the wall on wall jump
 }
 
 return PLAYER_CONSTANTS

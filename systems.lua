@@ -24,9 +24,12 @@ Systems.getRoundWinner   = SCombat.getRoundWinner
 --   applyGravity         — accumulate vertical force before movement resolves it
 --   applyHorizontalMovement — set dx from input
 --   applyJump            — reads framesSinceGrounded (prev frame) + history → sets dy
+--   applyWallJump        — reads framesSinceWall (prev frame) + history → sets dx, dy
+--                          runs after applyJump so the shared cooldown blocks both
+--                          from firing in the same frame
 --   applyVariableJumpCutoff — clamps dy on early key release
 --   playerMove           — sweeps position, resolves contacts, writes grounded + wallDir
---   updateGroundedTimer  — reads fresh grounded.value → updates framesSinceGrounded
+--   updateGroundedTimer  — reads fresh grounded.value/wallDir → updates timers
 --   applyVelocity        — moves non-player entities (bullets)
 --   combat               — guns, bullets, damage, death, lifetime
 --   updateFacing         — cosmetic, reads aimAngle
@@ -45,6 +48,7 @@ function Systems.runSystems(w, frameInputs, localPlayerIndex, dt)
     SPhysics.applyGravity(w, dt)
     SPhysics.applyHorizontalMovement(w)
     SPhysics.applyJump(w)
+    SPhysics.applyWallJump(w)
     SPhysics.applyVariableJumpCutoff(w)
     SPhysics.playerMove(w, dt)
     SPhysics.updateGroundedTimer(w)
