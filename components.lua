@@ -49,7 +49,7 @@ C.Name = {
 }
 
 function C.grounded()
-    return { value = false }
+    return { value = false, wallDir = 0 }
 end
 
 function C.playerIndex(index)
