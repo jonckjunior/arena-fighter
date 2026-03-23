@@ -346,4 +346,75 @@ function Game.draw(canvas)
     drawOverlays()
 end
 
+local function generateStateHash(w)
+    local hash = 0
+    local prime = 31
+    local modulo = 2147483647
+
+    local activeEntities = World.query(w, C.Name.position)
+    table.sort(activeEntities)
+
+    for _, id in ipairs(activeEntities) do
+        local pos = w.position[id]
+
+        local x = math.floor(pos.x * 10000)
+        local y = math.floor(pos.y * 10000)
+
+        hash = (hash * prime + x) % modulo
+        hash = (hash * prime + y) % modulo
+
+        if w.velocity[id] then
+            local vel = w.velocity[id]
+            local dx = math.floor(vel.dx * 10000)
+            local dy = math.floor(vel.dy * 10000)
+            hash = (hash * prime + dx) % modulo
+            hash = (hash * prime + dy) % modulo
+        end
+
+        if w.hp[id] then
+            local hp = math.floor(w.hp[id].current * 10000)
+            hash = (hash * prime + hp) % modulo
+        end
+
+        if w.gun[id] then
+            hash = (hash * prime + w.gun[id].cooldown) % modulo
+        end
+    end
+
+    return hash
+end
+
+function Game.runHeadlessTest(frames)
+    print("Starting headless test for " .. frames .. " frames")
+    local rng = love.math.newRandomGenerator(9999)
+    local originalGather = Systems.gatherLocalInput
+
+    Systems.gatherLocalInput = function(playerIndex, w, mx, my, USE_NETWORK)
+        return {
+            up = rng:random() > 0.8,
+            dn = rng:random() > 0.8,
+            lt = rng:random() > 0.5,
+            rt = rng:random() > 0.5,
+            fire = rng:random() > 0.9,
+            aimAngle = (rng:random() - 0.5) * math.pi * 2,
+            restart = false,
+        }
+    end
+    network.USE_NETWORK = false
+    Game.load()
+
+    for i = 1, frames do
+        Game.update(FIXED_DT, {})
+    end
+
+    local finalHash = generateStateHash(state.world)
+    print("=====================================")
+    print("Headless Test Complete.")
+    print("Final State Hash: " .. finalHash)
+    print("=====================================")
+
+    Systems.gatherLocalInput = originalGather
+    love.event.quit()
+end
+
 return Game

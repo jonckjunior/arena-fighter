@@ -5,6 +5,7 @@ VIEWPORT_H        = 270
 local Game        = require "game"
 local canvas
 DEBUG             = false
+MONKEY_PATCH      = true
 local keysPressed = {}
 
 function love.load()
@@ -16,6 +17,11 @@ function love.load()
     canvas:setFilter("nearest", "nearest")
 
     love.mouse.setVisible(false)
+
+    if MONKEY_PATCH then
+        Game.runHeadlessTest(10000)
+        return
+    end
 
     Game.load()
 end
