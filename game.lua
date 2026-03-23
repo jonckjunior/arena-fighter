@@ -411,6 +411,7 @@ function Game.runHeadlessTest(frames)
     print("=====================================")
     print("Headless Test Complete.")
     print("Final State Hash: " .. finalHash)
+    print("Number of entities with position: " .. #state.world.position)
     print("=====================================")
 
     Systems.gatherLocalInput = originalGather
