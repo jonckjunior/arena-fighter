@@ -82,7 +82,7 @@ local function initCameraAndCursor()
 end
 
 local function initNetwork()
-    network.USE_NETWORK  = true
+    network.USE_NETWORK  = false
     network.RELAY_HOST   = "localhost"
     network.RELAY_PORT   = 22122
     network.NUM_PLAYERS  = 2
@@ -199,6 +199,14 @@ end
 local function drawNetworkDebug()
     local stall = network.ls.stalledFrames > 0 and "  STALLED x" .. network.ls.stalledFrames or ""
     love.graphics.print("P" .. network.networkIndex .. "  f=" .. network.ls.frame .. stall, 4, 4)
+end
+
+---Draws player scores at the top of the screen.
+---@param scores table  scores[playerIndex] = integer
+local function drawScores(scores)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print("P1: " .. scores[1], 10, 10)
+    love.graphics.print("P2: " .. scores[2], love.graphics.getWidth() - 60, 10)
 end
 
 local function drawOverlays()
@@ -345,6 +353,8 @@ function Game.draw(canvas)
     end
 
     drawOverlays()
+
+    drawScores(state.scores)
 end
 
 local function generateStateHash(w)

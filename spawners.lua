@@ -7,8 +7,8 @@ local Spawners         = {}
 
 Spawners.GunDefs       = {
     pistol = {
-        maxCooldown = 15,
-        damage      = 20,
+        maxCooldown = 30,
+        damage      = 35,
         bulletSpeed = 400,
         bulletCount = 1,
         spread      = 0,
