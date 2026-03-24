@@ -5,7 +5,7 @@ local C     = require "components"
 ---@field entities table<integer, boolean>
 ---@field position table<integer, {x: number, y: number, px: number, py: number}>
 ---@field velocity table<integer, {dx: number, dy: number}>
----@field animation table<integer, {frames: table, current: number, timer: number, duration: number, isPlaying: boolean, angle: number | nil, flipY: integer | nil}>
+---@field animation table<integer, {frameIds: string[], current: number, timer: number, duration: number, isPlaying: boolean, angle: number | nil, flipY: integer | nil}>
 ---@field input table<integer, {up: boolean, dn: boolean, lt: boolean, rt: boolean, fire: boolean, reload: boolean, aimAngle: number, inputHistory: table[], historySize: integer}>
 ---@field speed table<integer, {value: number}>
 ---@field facing table<integer, {dir: number}>
@@ -23,7 +23,7 @@ local C     = require "components"
 ---@field gravity table<integer, {g: number}>
 ---@field grounded table<integer, {value: boolean, wallDir: integer, framesSinceGrounded: integer, framesSinceJump: integer, framesSinceWall: integer, lastWallDir: integer}>
 ---@field rng love.RandomGenerator
----@field map love.Image
+---@field mapAssetId string|nil
 ---@field mapWidth  number
 ---@field mapHeight number
 local World = {}
@@ -32,9 +32,12 @@ local World = {}
 ---@return World
 function World.new()
     local w = {
-        nextId   = 1,
-        entities = {},
-        rng      = love.math.newRandomGenerator(12345),
+        nextId     = 1,
+        entities   = {},
+        rng        = love.math.newRandomGenerator(12345),
+        mapAssetId = nil,
+        mapWidth   = 0,
+        mapHeight  = 0,
     }
     for _, name in pairs(C.Name) do
         w[name] = {}
@@ -55,7 +58,7 @@ end
 function World.destroy(w, id)
     w.entities[id] = nil
     for _, t in pairs(w) do
-        if type(t) == "table" then t[id] = nil end
+        if type(t) == "table" and t ~= w.rng then t[id] = nil end
     end
 end
 
@@ -98,8 +101,13 @@ end
 ---@param comp table
 ---@return table
 local function copyAnimation(comp)
+    local frameIds = {}
+    for i, frameId in ipairs(comp.frameIds) do
+        frameIds[i] = frameId
+    end
+
     return {
-        frames    = comp.frames,
+        frameIds  = frameIds,
         current   = comp.current,
         timer     = comp.timer,
         duration  = comp.duration,

@@ -5,6 +5,7 @@ local Lockstep = require "lockstep"
 local Utils    = require "utils"
 local C        = require "components"
 local Maps     = require "maps"
+local Assets   = require "assets"
 
 ---@class Game
 local Game     = {}
@@ -49,7 +50,7 @@ local state    = {
 -- ── Camera / Cursor ───────────────────────────────────────────────────────────
 
 ---@class cursor
----@field sprite love.Image|nil
+---@field spriteId string|nil
 ---@field x number
 ---@field y number
 local cursor   = {}
@@ -78,7 +79,7 @@ local function initCameraAndCursor()
             shakeOffsetY = 0,
         }
     }
-    cursor = { sprite = love.graphics.newImage("Assets/Sprites/Weapons/Tiles/tile_0024.png"), x = 0, y = 0 }
+    cursor = { spriteId = "cursor_cross", x = 0, y = 0 }
 end
 
 local function initNetwork()
@@ -187,12 +188,13 @@ local function tickSimulation()
 end
 
 local function drawCursor()
-    if cursor.sprite then
+    if cursor.spriteId then
+        local sprite = Assets.getImage(cursor.spriteId)
         local sx = love.mouse.getX() / SCALE_FACTOR
         local sy = love.mouse.getY() / SCALE_FACTOR
-        love.graphics.draw(cursor.sprite, sx, sy, 0, 1, 1,
-            Utils.round(cursor.sprite:getWidth() / 2),
-            Utils.round(cursor.sprite:getHeight() / 2))
+        love.graphics.draw(sprite, sx, sy, 0, 1, 1,
+            Utils.round(sprite:getWidth() / 2),
+            Utils.round(sprite:getHeight() / 2))
     end
 end
 
@@ -294,6 +296,7 @@ end
 -- ── Public API ────────────────────────────────────────────────────────────────
 
 function Game.load()
+    Assets.load()
     initNetwork()
     initCameraAndCursor()
 
@@ -334,8 +337,8 @@ function Game.draw(canvas)
     love.graphics.translate(-camera.x + camera.shake.shakeOffsetX, -camera.y + camera.shake.shakeOffsetY)
 
     --- WORLD DRAW
-    if state.world.map then
-        love.graphics.draw(state.world.map, 0, 0)
+    if state.world.mapAssetId then
+        love.graphics.draw(Assets.getImage(state.world.mapAssetId), 0, 0)
     end
     local alpha = (state.gameState == "playing") and (state.accumulator / FIXED_DT) or 1.0
     Systems.draw(state.world, alpha)

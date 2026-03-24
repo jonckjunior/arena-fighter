@@ -94,8 +94,8 @@ function C.speed(value)
     return { value = value }
 end
 
-function C.animation(frames, duration)
-    return { frames = frames, current = 1, timer = 0, duration = duration, isPlaying = false }
+function C.animation(frameIds, duration)
+    return { frameIds = frameIds, current = 1, timer = 0, duration = duration, isPlaying = false }
 end
 
 function C.facing(dir)

@@ -1,6 +1,7 @@
 local World            = require "world"
 local C                = require "components"
 local PLAYER_CONSTANTS = require "player_constants"
+local Assets           = require "assets"
 
 ---@class Spawners
 local Spawners         = {}
@@ -12,7 +13,7 @@ Spawners.GunDefs       = {
         bulletSpeed = 400,
         bulletCount = 1,
         spread      = 0,
-        sprite      = "Assets/Sprites/Weapons/Tiles/tile_0000.png",
+        spriteId    = "gun_pistol",
         maxAmmo     = 3,
         reloadTime  = 1.5, -- seconds
     },
@@ -22,7 +23,7 @@ Spawners.GunDefs       = {
         bulletSpeed = 400,
         bulletCount = 1,
         spread      = 0,
-        sprite      = "Assets/Sprites/Weapons/Tiles/tile_0005.png",
+        spriteId    = "gun_ak47",
         maxAmmo     = 30,
         reloadTime  = 2.0,
     },
@@ -40,11 +41,7 @@ function Spawners.player(w, x, y, index)
     w.velocity[id]    = C.velocity()
     w.speed[id]       = C.speed(PLAYER_CONSTANTS.SPEED)
     w.input[id]       = C.input(PLAYER_CONSTANTS.INPUT_HISTORY_FRAMES)
-    w.animation[id]   = C.animation({
-        love.graphics.newImage("Assets/Sprites/Players/Tiles/tile_0000.png"),
-        love.graphics.newImage("Assets/Sprites/Players/Tiles/tile_0001.png"),
-        love.graphics.newImage("Assets/Sprites/Players/Tiles/tile_0002.png"),
-    }, 0.15)
+    w.animation[id]   = C.animation({ "player_idle_1", "player_idle_2", "player_idle_3" }, 0.15)
     w.facing[id]      = C.facing(1)
     w.collider[id]    = C.rectCollider(10, 14, 0, 4)
     w.drawLayer[id]   = C.drawLayer(1)
@@ -72,7 +69,7 @@ function Spawners.gun(w, ownerId, defName)
         def.bulletCount, def.spread,
         def.maxAmmo, def.reloadTime
     )
-    w.animation[id]  = C.animation({ love.graphics.newImage(def.sprite) }, 0.1)
+    w.animation[id]  = C.animation({ def.spriteId }, 0.1)
     w.drawLayer[id]  = C.drawLayer(2)
     return id
 end
@@ -93,9 +90,7 @@ function Spawners.bullet(w, ownerId, x, y, vx, vy, damage)
     w.collider[id]            = C.circleCollider(3, 0, 0)
     w.bullet[id]              = C.bullet(ownerId, damage)
     w.lifetime[id]            = C.lifetime(2.0)
-    w.animation[id]           = C.animation({
-        love.graphics.newImage("Assets/Sprites/Weapons/Tiles/tile_0023.png")
-    }, 0.1)
+    w.animation[id]           = C.animation({ "bullet_basic" }, 0.1)
     w.animation[id].isPlaying = true
     w.drawLayer[id]           = C.drawLayer(2)
     w.gravity[id]             = C.gravity(PLAYER_CONSTANTS.STANDARD_GRAVITY_BULLET)
@@ -123,9 +118,7 @@ function Spawners.wall(w, x, y)
     w.position[id]  = C.position(x, y)
     w.collider[id]  = C.rectCollider(16, 11, 0, 1)
     w.solid[id]     = C.solid()
-    w.animation[id] = C.animation({
-        love.graphics.newImage("Assets/Sprites/Tiles/Tiles/tile_0222.png")
-    }, 0.1)
+    w.animation[id] = C.animation({ "wall_basic" }, 0.1)
     w.drawLayer[id] = C.drawLayer(1)
     return id
 end
@@ -134,8 +127,9 @@ end
 ---@return World
 function Spawners.fromMapDef(mapDef)
     local w                 = World.new()
-    w.map                   = love.graphics.newImage(mapDef.imagePath)
-    w.mapWidth, w.mapHeight = w.map:getDimensions()
+    local mapImage          = Assets.getImage(mapDef.assetId)
+    w.mapAssetId            = mapDef.assetId
+    w.mapWidth, w.mapHeight = mapImage:getDimensions()
 
     for i, sp in ipairs(mapDef.spawnPoints) do
         local pid = Spawners.player(w, sp.x, sp.y, i)

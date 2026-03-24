@@ -2,6 +2,7 @@ local World            = require "world"
 local C                = require "components"
 local FM               = require "fixedmath"
 local PLAYER_CONSTANTS = require "player_constants"
+local Assets           = require "assets"
 
 ---@class SystemsRender
 local SystemsRender    = {}
@@ -38,7 +39,7 @@ function SystemsRender.animation(w, dt)
             anim.timer = anim.timer + dt
             if anim.timer >= anim.duration then
                 anim.timer   = anim.timer - anim.duration
-                anim.current = (anim.current % #anim.frames) + 1
+                anim.current = (anim.current % #anim.frameIds) + 1
             end
         else
             anim.current = 1
@@ -63,7 +64,7 @@ function SystemsRender.draw(w, alpha)
         local pos  = w.position[id]
         local anim = w.animation[id]
         local dir  = w.facing[id] and w.facing[id].dir or 1
-        local img  = anim.frames[anim.current]
+        local img  = Assets.getImage(anim.frameIds[anim.current])
         local iw   = img:getWidth()
         local ih   = img:getHeight()
         local rx   = pos.px + (pos.x - pos.px) * alpha
