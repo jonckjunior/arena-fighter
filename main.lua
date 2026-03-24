@@ -6,7 +6,6 @@ local Game        = require "game"
 local canvas
 DEBUG             = true
 MONKEY_PATCH      = false
-local keysPressed = {}
 
 function love.load()
     love.graphics.setDefaultFilter("nearest", "nearest")
@@ -26,9 +25,24 @@ function love.load()
     Game.load()
 end
 
+local function grabInput()
+    return {
+        w         = love.keyboard.isDown("w"),
+        a         = love.keyboard.isDown("a"),
+        s         = love.keyboard.isDown("s"),
+        d         = love.keyboard.isDown("d"),
+        u         = love.keyboard.isDown("u"),
+        h         = love.keyboard.isDown("h"),
+        j         = love.keyboard.isDown("j"),
+        k         = love.keyboard.isDown("k"),
+        r         = love.keyboard.isDown("r"),
+        space     = love.keyboard.isDown("space"),
+        leftMouse = love.mouse.isDown(1),
+    }
+end
+
 function love.update(dt)
-    Game.update(dt, keysPressed)
-    keysPressed = {}
+    Game.update(dt, grabInput())
 end
 
 function love.draw()
@@ -38,5 +52,4 @@ end
 function love.keypressed(key)
     if key == "f1" then DEBUG = not DEBUG end
     if key == "escape" then love.event.quit() end
-    keysPressed[key] = true
 end

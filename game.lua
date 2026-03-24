@@ -133,16 +133,16 @@ local function startMatch()
     startRound()
 end
 
-local function tickSimulation()
+local function tickSimulation(keysPressed)
     local frameInputs
     if network.USE_NETWORK then
-        local myInput = Systems.gatherLocalInput(network.networkIndex, state.world, cursor.x, cursor.y, true)
+        local myInput = Systems.gatherLocalInput(network.networkIndex, state.world, cursor.x, cursor.y, true, keysPressed)
         frameInputs = Lockstep.tick(network.ls, myInput)
         if not frameInputs then return end
     else
         frameInputs = {
-            [1] = Systems.gatherLocalInput(1, state.world, cursor.x, cursor.y, false),
-            [2] = Systems.gatherLocalInput(2, state.world, cursor.x, cursor.y, false),
+            [1] = Systems.gatherLocalInput(1, state.world, cursor.x, cursor.y, false, keysPressed),
+            [2] = Systems.gatherLocalInput(2, state.world, cursor.x, cursor.y, false, keysPressed),
         }
     end
 
@@ -284,7 +284,7 @@ local function tickFixed(keysPressed)
             state.gameState = "playing"
         end
     elseif state.gameState == "playing" then
-        tickSimulation()
+        tickSimulation(keysPressed)
     elseif state.gameState == "roundOver" then
         state.waitTimer = state.waitTimer - FIXED_DT
         if state.waitTimer <= 0 then startRound() end

@@ -19,26 +19,26 @@ end
 ---@param my number
 ---@param USE_NETWORK boolean
 ---@return table
-function SystemsInput.gatherLocalInput(playerIndex, w, mx, my, USE_NETWORK)
+function SystemsInput.gatherLocalInput(playerIndex, w, mx, my, USE_NETWORK, keysPressed)
     local inp
     if playerIndex == 1 or USE_NETWORK then
         inp = {
-            up       = love.keyboard.isDown("w"),
-            dn       = love.keyboard.isDown("s"),
-            lt       = love.keyboard.isDown("a"),
-            rt       = love.keyboard.isDown("d"),
-            fire     = love.mouse.isDown(1),
-            reload   = love.keyboard.isDown("r"),
+            up       = keysPressed["w"],
+            dn       = keysPressed["s"],
+            lt       = keysPressed["a"],
+            rt       = keysPressed["d"],
+            fire     = keysPressed["leftMouse"],
+            reload   = keysPressed["r"],
             aimAngle = 0,
         }
     else
         inp = {
-            up       = love.keyboard.isDown("u"),
-            dn       = love.keyboard.isDown("j"),
-            lt       = love.keyboard.isDown("h"),
-            rt       = love.keyboard.isDown("k"),
-            fire     = love.keyboard.isDown("space"),
-            reload   = love.keyboard.isDown("r"),
+            up       = keysPressed["u"],
+            dn       = keysPressed["j"],
+            lt       = keysPressed["h"],
+            rt       = keysPressed["k"],
+            fire     = keysPressed["space"],
+            reload   = keysPressed["r"],
             aimAngle = 0,
         }
     end
