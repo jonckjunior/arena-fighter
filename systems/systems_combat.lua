@@ -11,12 +11,16 @@ local SystemsCombat = {}
 -- ── Collision helper ──────────────────────────────────────────────────────────
 
 -- Bullets are always circles; terrain and players are always rects.
-local function circleHitsRect(cx, cy, r, rx, ry, rw, rh)
-    local nearX = math.max(rx - rw * 0.5, math.min(cx, rx + rw * 0.5))
-    local nearY = math.max(ry - rh * 0.5, math.min(cy, ry + rh * 0.5))
+local function circleHitsRect(bpos, bcol, rpos, rcol)
+    local cx    = bpos.x + bcol.ox
+    local cy    = bpos.y + bcol.oy
+    local rx    = rpos.x + rcol.ox
+    local ry    = rpos.y + rcol.oy
+    local nearX = math.max(rx - rcol.w * 0.5, math.min(cx, rx + rcol.w * 0.5))
+    local nearY = math.max(ry - rcol.h * 0.5, math.min(cy, ry + rcol.h * 0.5))
     local dx    = cx - nearX
     local dy    = cy - nearY
-    return dx * dx + dy * dy < r * r
+    return dx * dx + dy * dy < bcol.radius * bcol.radius
 end
 
 -- ── Systems ───────────────────────────────────────────────────────────────────
@@ -99,13 +103,14 @@ function SystemsCombat.bulletPlayerCollision(w)
     for _, bid in ipairs(bullets) do
         local bullet = w.bullet[bid]
         local bpos   = w.position[bid]
-        local r      = w.collider[bid].radius
+        local bcol   = w.collider[bid]
         local hits   = {}
 
         for _, pid in ipairs(players) do
             if pid == bullet.ownerId then goto continuePlayer end
+            local ppos = w.position[pid]
             local pcol = w.collider[pid]
-            if circleHitsRect(bpos.x, bpos.y, r, w.position[pid].x, w.position[pid].y, pcol.w, pcol.h) then
+            if circleHitsRect(bpos, bcol, ppos, pcol) then
                 hits[#hits + 1] = pid
             end
             ::continuePlayer::
@@ -139,11 +144,11 @@ function SystemsCombat.bulletTerrainCollision(w)
         end
 
         local bpos = w.position[bid]
-        local r    = w.collider[bid].radius
+        local bcol = w.collider[bid]
         for _, sid in ipairs(solids) do
             local spos = w.position[sid]
             local scol = w.collider[sid]
-            if circleHitsRect(bpos.x, bpos.y, r, spos.x, spos.y, scol.w, scol.h) then
+            if circleHitsRect(bpos, bcol, spos, scol) then
                 toDestroy[#toDestroy + 1] = bid
                 break
             end

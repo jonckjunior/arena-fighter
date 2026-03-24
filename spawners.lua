@@ -46,7 +46,7 @@ function Spawners.player(w, x, y, index)
         love.graphics.newImage("Assets/Sprites/Players/Tiles/tile_0002.png"),
     }, 0.15)
     w.facing[id]      = C.facing(1)
-    w.collider[id]    = C.rectCollider(10, 14)
+    w.collider[id]    = C.rectCollider(10, 14, 0, 3)
     w.drawLayer[id]   = C.drawLayer(1)
     w.playerIndex[id] = C.playerIndex(index)
     w.hp[id]          = C.hp(PLAYER_CONSTANTS.HP)
@@ -121,7 +121,7 @@ end
 function Spawners.wall(w, x, y)
     local id        = World.newEntity(w)
     w.position[id]  = C.position(x, y)
-    w.collider[id]  = C.rectCollider(16, 16)
+    w.collider[id]  = C.rectCollider(16, 11, 0, 1)
     w.solid[id]     = true
     w.animation[id] = C.animation({
         love.graphics.newImage("Assets/Sprites/Tiles/Tiles/tile_0222.png")

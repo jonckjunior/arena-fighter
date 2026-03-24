@@ -77,9 +77,12 @@ function SystemsRender.draw(w, alpha)
             local col = w.collider[id]
             love.graphics.setColor(1, 0, 0, 0.5)
             if col.shape == "circle" then
-                love.graphics.circle("fill", pos.x, pos.y, col.radius)
+                love.graphics.circle("fill", pos.x + col.ox, pos.y + col.oy, col.radius)
             elseif col.shape == "rect" then
-                love.graphics.rectangle("fill", pos.x - col.w * 0.5, pos.y - col.h * 0.5, col.w, col.h)
+                love.graphics.rectangle("fill",
+                    pos.x + col.ox - col.w * 0.5,
+                    pos.y + col.oy - col.h * 0.5,
+                    col.w, col.h)
             end
             love.graphics.setColor(1, 1, 1)
         end

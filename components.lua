@@ -104,17 +104,19 @@ end
 
 ---Creates a circle collider
 ---@param radius number
----@return table
-function C.circleCollider(radius)
-    return { shape = "circle", radius = radius }
+---@return {shape: string, radius: integer, ox: integer, oy: integer}
+function C.circleCollider(radius, ox, oy)
+    return { shape = "circle", radius = radius, ox = ox or 0, oy = oy or 0 }
 end
 
 ---Creates a rectangle collider. Position is treated as the center.
----@param w number
----@param h number
----@return table
-function C.rectCollider(w, h)
-    return { shape = "rect", w = w, h = h }
+---@param w integer
+---@param h integer
+---@param ox integer
+---@param oy integer
+---@return {shape: string, w: integer, h: integer, ox: integer, oy: integer}
+function C.rectCollider(w, h, ox, oy)
+    return { shape = "rect", w = w, h = h, ox = ox or 0, oy = oy or 0 }
 end
 
 function C.gun(maxCooldown, damage, bulletSpeed, bulletCount, spread, maxAmmo, reloadTime)

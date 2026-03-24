@@ -202,10 +202,10 @@ function SystemsPhysics.playerMove(w, dt)
         for _, sid in ipairs(solids) do
             local sc     = w.collider[sid]
             local sx, sy = w.position[sid].x, w.position[sid].y
-            local ox     = (halfAW + sc.w * 0.5) - math.abs(pos.x - sx)
-            local oy     = (halfAH + sc.h * 0.5) - math.abs(pos.y - sy)
+            local ox     = (halfAW + sc.w * 0.5) - math.abs((pos.x + col.ox) - (sx + sc.ox))
+            local oy     = (halfAH + sc.h * 0.5) - math.abs((pos.y + col.oy) - (sy + sc.oy))
             if ox > 0 and oy > 0 then
-                local nx = (pos.x >= sx) and 1 or -1
+                local nx = ((pos.x + col.ox) >= sx) and 1 or -1
                 pos.x = pos.x + nx * ox
                 if nx * vel.dx < 0 then vel.dx = 0 end
                 w.grounded[id].wallDir = -nx
@@ -217,10 +217,10 @@ function SystemsPhysics.playerMove(w, dt)
         for _, sid in ipairs(solids) do
             local sc     = w.collider[sid]
             local sx, sy = w.position[sid].x, w.position[sid].y
-            local ox     = (halfAW + sc.w * 0.5) - math.abs(pos.x - sx)
-            local oy     = (halfAH + sc.h * 0.5) - math.abs(pos.y - sy)
+            local ox     = (halfAW + sc.w * 0.5) - math.abs((pos.x + col.ox) - (sx + sc.ox))
+            local oy     = (halfAH + sc.h * 0.5) - math.abs((pos.y + col.oy) - (sy + sc.oy))
             if ox > 0 and oy > 0 then
-                local ny = (pos.y >= sy) and 1 or -1
+                local ny = ((pos.y + col.oy) >= sy) and 1 or -1
                 pos.y = pos.y + ny * oy
                 if ny < 0 then
                     w.grounded[id].value = true
@@ -233,13 +233,13 @@ function SystemsPhysics.playerMove(w, dt)
 
         -- Ground probe: catches standing still on a surface
         if not w.grounded[id].value then
-            local probeY = pos.y + 1
+            local probeY = pos.y + col.oy + 1
             for _, sid in ipairs(solids) do
                 local sc     = w.collider[sid]
                 local sx, sy = w.position[sid].x, w.position[sid].y
-                local ox     = (halfAW + sc.w * 0.5) - math.abs(pos.x - sx)
-                local oy     = (halfAH + sc.h * 0.5) - math.abs(probeY - sy)
-                if ox > 0 and oy > 0 and probeY < sy then
+                local ox     = (halfAW + sc.w * 0.5) - math.abs((pos.x + col.ox) - (sx + sc.ox))
+                local oy     = (halfAH + sc.h * 0.5) - math.abs(probeY - (sy + sc.oy))
+                if ox > 0 and oy > 0 and probeY < (sy + sc.oy) then
                     w.grounded[id].value = true
                     break
                 end
