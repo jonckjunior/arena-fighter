@@ -308,8 +308,6 @@ function Game.load()
 end
 
 function Game.update(dt, keysPressed)
-    dt = math.min(dt, 0.1)
-
     -- Variable rate: I/O and visuals only
     cursor.x = love.mouse.getX() / SCALE_FACTOR + camera.x
     cursor.y = love.mouse.getY() / SCALE_FACTOR + camera.y
@@ -318,9 +316,12 @@ function Game.update(dt, keysPressed)
     end
 
     state.accumulator = state.accumulator + dt
-    while state.accumulator >= FIXED_DT do
+    local maxTicksPerFrame = 6
+    local ticksThisFrame = 0
+    while state.accumulator >= FIXED_DT and ticksThisFrame < maxTicksPerFrame do
         tickFixed(keysPressed)
         state.accumulator = state.accumulator - FIXED_DT
+        ticksThisFrame = ticksThisFrame + 1
     end
 
     updateCamera(state.world, network.networkIndex, cursor.x, cursor.y, dt)
