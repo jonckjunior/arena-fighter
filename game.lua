@@ -408,10 +408,9 @@ function Game.runHeadlessTest(frames)
             rt = rng:random() > 0.5,
             fire = rng:random() > 0.9,
             aimAngle = (rng:random() - 0.5) * math.pi * 2,
-            reload = false,
+            reload = rng:random() > 0.5,
         }
     end
-    network.USE_NETWORK = false
     Game.load()
 
     for i = 1, frames do
