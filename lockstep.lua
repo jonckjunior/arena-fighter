@@ -228,14 +228,16 @@ end
 ---@param myInput  table   local player input, aim angle already filled
 ---@return table|nil
 function Lockstep.tick(ls, myInput)
-    local targetFrame                       = ls.frame + ls.inputDelay
+    local targetFrame = ls.frame + ls.inputDelay
 
-    -- Store our own input directly — the relay only echoes to other clients
-    -- so we will never receive our own packet back.
-    ls.inputBuffer[targetFrame]             = ls.inputBuffer[targetFrame] or {}
-    ls.inputBuffer[targetFrame][ls.myIndex] = Lockstep.quantizeInput(myInput)
+    local alreadySent = ls.lastSentFrame and ls.lastSentFrame >= targetFrame
 
-    Lockstep.send(ls, myInput)
+    if not alreadySent then
+        -- Store + send ONLY the first time we hit this target frame
+        ls.inputBuffer[targetFrame]             = ls.inputBuffer[targetFrame] or {}
+        ls.inputBuffer[targetFrame][ls.myIndex] = Lockstep.quantizeInput(myInput)
+        Lockstep.send(ls, myInput) -- this sets lastSentFrame
+    end
 
     if not Lockstep.ready(ls) then
         ls.stalledFrames = ls.stalledFrames + 1
