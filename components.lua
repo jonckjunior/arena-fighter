@@ -119,19 +119,21 @@ function C.rectCollider(w, h, ox, oy)
     return { shape = "rect", w = w, h = h, ox = ox or 0, oy = oy or 0 }
 end
 
-function C.gun(maxCooldown, damage, bulletSpeed, bulletCount, spread, maxAmmo, reloadTime)
+function C.gun(maxCooldown, damage, bulletSpeed, bulletCount, spread, maxAmmo, reloadTime, muzzleOffsetX, muzzleOffsetY)
     return {
-        cooldown    = 0,
-        maxCooldown = maxCooldown,
-        damage      = damage,
-        bulletSpeed = bulletSpeed,
-        bulletCount = bulletCount,
-        spread      = spread,
-        maxAmmo     = maxAmmo,
-        currentAmmo = maxAmmo,
-        reloadTime  = reloadTime,
-        reloadTimer = 0,
-        isReloading = false,
+        cooldown      = 0,
+        maxCooldown   = maxCooldown,
+        damage        = damage,
+        bulletSpeed   = bulletSpeed,
+        bulletCount   = bulletCount,
+        spread        = spread,
+        maxAmmo       = maxAmmo,
+        currentAmmo   = maxAmmo,
+        reloadTime    = reloadTime,
+        reloadTimer   = 0,
+        isReloading   = false,
+        muzzleOffsetX = muzzleOffsetX,
+        muzzleOffsetY = muzzleOffsetY,
     }
 end
 

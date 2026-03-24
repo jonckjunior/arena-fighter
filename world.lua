@@ -12,7 +12,7 @@ local Rng   = require "rng"
 ---@field facing table<integer, {dir: number}>
 ---@field solid table<integer, {}>
 ---@field collider table<integer, {shape: "circle"|"rect", radius: number|nil, w: number|nil, h: number|nil, ox: integer, oy: integer}>
----@field gun table<integer, {cooldown: number, maxCooldown: number, damage: number, bulletSpeed: number, spread: number, bulletCount: integer, isReloading: boolean, reloadTime: number, reloadTimer: number, maxAmmo: integer, currentAmmo: integer}>
+---@field gun table<integer, {cooldown: number, maxCooldown: number, damage: number, bulletSpeed: number, spread: number, bulletCount: integer, isReloading: boolean, reloadTime: number, reloadTimer: number, maxAmmo: integer, currentAmmo: integer, muzzleOffsetX: integer, muzzleOffsetY: integer}>
 ---@field bullet table<integer, {ownerId: integer, damage: number, graceFrames: integer}>
 ---@field lifetime table<integer, {ttl: number}>
 ---@field equippedBy table<integer, {ownerId: integer}>

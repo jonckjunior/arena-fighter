@@ -1,11 +1,11 @@
-SCALE_FACTOR      = 3
-VIEWPORT_W        = 480
-VIEWPORT_H        = 270
+SCALE_FACTOR = 3
+VIEWPORT_W   = 480
+VIEWPORT_H   = 270
 
-local Game        = require "game"
+local Game   = require "game"
 local canvas
-DEBUG             = true
-MONKEY_PATCH      = false
+DEBUG        = true
+MONKEY_PATCH = false
 
 function love.load()
     love.graphics.setDefaultFilter("nearest", "nearest")

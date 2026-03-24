@@ -2,7 +2,6 @@ local World         = require "world"
 local Spawners      = require "spawners"
 local C             = require "components"
 local FM            = require "fixedmath"
-local Assets        = require "assets"
 
 ---@class SystemsCombat
 local SystemsCombat = {}
@@ -72,10 +71,11 @@ function SystemsCombat.firing(w)
         if inp.fire and gun.cooldown == 0
             and not gun.isReloading
             and gun.currentAmmo > 0 then
-            local angle   = inp.aimAngle
-            local iw      = Assets.getImage(anim.frameIds[anim.current]):getWidth()
-            local muzzleX = gunPos.x + FM.cos(angle) * (iw / 2)
-            local muzzleY = gunPos.y + FM.sin(angle) * (iw / 2)
+            local angle         = inp.aimAngle
+            local muzzleOffsetX = gun.muzzleOffsetX
+            local muzzleOffsetY = gun.muzzleOffsetY
+            local muzzleX       = gunPos.x + FM.cos(angle) * (muzzleOffsetX / 2)
+            local muzzleY       = gunPos.y + FM.sin(angle) * (muzzleOffsetY / 2)
 
             for i = 1, gun.bulletCount do
                 local spreadAngle = (w.rng:random() - 0.5) * 2 * gun.spread

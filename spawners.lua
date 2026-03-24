@@ -1,31 +1,34 @@
 local World            = require "world"
 local C                = require "components"
 local PLAYER_CONSTANTS = require "player_constants"
-local Assets           = require "assets"
 
 ---@class Spawners
 local Spawners         = {}
 
 Spawners.GunDefs       = {
     pistol = {
-        maxCooldown = 30,
-        damage      = 35,
-        bulletSpeed = 400,
-        bulletCount = 1,
-        spread      = 0,
-        spriteId    = "gun_pistol",
-        maxAmmo     = 3,
-        reloadTime  = 1.5, -- seconds
+        maxCooldown   = 30,
+        damage        = 35,
+        bulletSpeed   = 400,
+        bulletCount   = 1,
+        spread        = 0,
+        spriteId      = "gun_pistol",
+        maxAmmo       = 3,
+        reloadTime    = 1.5, -- seconds
+        muzzleOffsetX = 0,
+        muzzleOffsetY = 0,
     },
     ak47 = {
-        maxCooldown = 15,
-        damage      = 20,
-        bulletSpeed = 400,
-        bulletCount = 1,
-        spread      = 0,
-        spriteId    = "gun_ak47",
-        maxAmmo     = 30,
-        reloadTime  = 2.0,
+        maxCooldown   = 15,
+        damage        = 20,
+        bulletSpeed   = 400,
+        bulletCount   = 1,
+        spread        = 0,
+        spriteId      = "gun_ak47",
+        maxAmmo       = 30,
+        reloadTime    = 2.0,
+        muzzleOffsetX = 0,
+        muzzleOffsetY = 0,
     },
 }
 
@@ -67,7 +70,8 @@ function Spawners.gun(w, ownerId, defName)
     w.gun[id]        = C.gun(
         def.maxCooldown, def.damage, def.bulletSpeed,
         def.bulletCount, def.spread,
-        def.maxAmmo, def.reloadTime
+        def.maxAmmo, def.reloadTime,
+        def.muzzleOffsetX, def.muzzleOffsetY
     )
     w.animation[id]  = C.animation({ def.spriteId }, 0.1)
     w.drawLayer[id]  = C.drawLayer(2)
@@ -126,10 +130,10 @@ end
 ---@param mapDef MapDef
 ---@return World
 function Spawners.fromMapDef(mapDef)
-    local w                 = World.new()
-    local mapImage          = Assets.getImage(mapDef.assetId)
-    w.mapAssetId            = mapDef.assetId
-    w.mapWidth, w.mapHeight = mapImage:getDimensions()
+    local w      = World.new()
+    w.mapAssetId = mapDef.assetId
+    w.mapWidth   = mapDef.width
+    w.mapHeight  = mapDef.height
 
     for i, sp in ipairs(mapDef.spawnPoints) do
         local pid = Spawners.player(w, sp.x, sp.y, i)
