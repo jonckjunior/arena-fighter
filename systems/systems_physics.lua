@@ -174,73 +174,84 @@ function SystemsPhysics.updateGroundedTimer(w)
     end
 end
 
----Moves player-controlled entities using axis-separated AABB sweeps.
---- Pass 1: move X, resolve horizontal contacts → sets wallDir.
---- Pass 2: move Y, resolve vertical contacts   → sets grounded.value.
---- Ground probe: catches the standing-still case (vel.dy=0).
----@param w World
----@param dt number
+--- Calculates AABB overlap between a mover and a solid.
+--- @param w World
+--- @param moverCol table The collider component of the moving entity.
+--- @param checkX number The hypothetical X position to check.
+--- @param checkY number The hypothetical Y position to check.
+--- @param sid number The entity ID of the solid.
+--- @return number ox, number oy (The overlap amounts on each axis)
+--- @return number sx, number sy (The RAW position of the solid entity, without offsets)
+--- @return table solidCol (The collider component of the solid)
+local function getOverlap(w, moverCol, checkX, checkY, sid)
+    local sc           = w.collider[sid]
+    local sp           = w.position[sid]
+
+    -- We use offsets here to find the actual distance between collision centers
+    local moverCenterX = checkX + moverCol.ox
+    local moverCenterY = checkY + moverCol.oy
+    local solidCenterX = sp.x + sc.ox
+    local solidCenterY = sp.y + sc.oy
+
+    local ox           = (moverCol.w * 0.5 + sc.w * 0.5) - math.abs(moverCenterX - solidCenterX)
+    local oy           = (moverCol.h * 0.5 + sc.h * 0.5) - math.abs(moverCenterY - solidCenterY)
+
+    -- NOTE: Returns raw sp.x/sp.y so call sites can handle their own offset logic for signs
+    return ox, oy, sp.x, sp.y, sc
+end
+
 function SystemsPhysics.playerMove(w, dt)
     local solids = World.query(w, C.Name.solid, C.Name.position, C.Name.collider)
     local movers = World.query(w, C.Name.input, C.Name.velocity, C.Name.position,
         C.Name.collider, C.Name.grounded)
 
+    -- Separation of Duty: Reset transient states
     for _, id in ipairs(movers) do
-        w.grounded[id].value   = false
-        w.grounded[id].wallDir = 0
+        local g = w.grounded[id]
+        g.value = false
+        g.wallDir = 0
     end
 
     for _, id in ipairs(movers) do
-        local vel    = w.velocity[id]
-        local pos    = w.position[id]
-        local col    = w.collider[id]
-        local halfAW = col.w * 0.5
-        local halfAH = col.h * 0.5
+        local vel, pos, col = w.velocity[id], w.position[id], w.collider[id]
+        local grounded = w.grounded[id]
 
-        -- Pass 1: move X
-        pos.x        = pos.x + vel.dx * dt
+        -- Pass 1: Horizontal Movement
+        pos.x = pos.x + vel.dx * dt
         for _, sid in ipairs(solids) do
-            local sc     = w.collider[sid]
-            local sx, sy = w.position[sid].x, w.position[sid].y
-            local ox     = (halfAW + sc.w * 0.5) - math.abs((pos.x + col.ox) - (sx + sc.ox))
-            local oy     = (halfAH + sc.h * 0.5) - math.abs((pos.y + col.oy) - (sy + sc.oy))
+            local ox, oy, sx = getOverlap(w, col, pos.x, pos.y, sid)
             if ox > 0 and oy > 0 then
                 local nx = ((pos.x + col.ox) >= sx) and 1 or -1
                 pos.x = pos.x + nx * ox
                 if nx * vel.dx < 0 then vel.dx = 0 end
-                w.grounded[id].wallDir = -nx
+                grounded.wallDir = -nx
             end
         end
 
-        -- Pass 2: move Y
+        -- Pass 2: Vertical Movement
         pos.y = pos.y + vel.dy * dt
         for _, sid in ipairs(solids) do
-            local sc     = w.collider[sid]
-            local sx, sy = w.position[sid].x, w.position[sid].y
-            local ox     = (halfAW + sc.w * 0.5) - math.abs((pos.x + col.ox) - (sx + sc.ox))
-            local oy     = (halfAH + sc.h * 0.5) - math.abs((pos.y + col.oy) - (sy + sc.oy))
+            local ox, oy, _, sy = getOverlap(w, col, pos.x, pos.y, sid)
             if ox > 0 and oy > 0 then
                 local ny = ((pos.y + col.oy) >= sy) and 1 or -1
                 pos.y = pos.y + ny * oy
-                if ny < 0 then
-                    w.grounded[id].value = true
+
+                if ny < 0 then -- Hit top of a solid (floor)
+                    grounded.value = true
                     if vel.dy > 0 then vel.dy = 0 end
-                else
+                elseif ny > 0 then -- Hit bottom of a solid (ceiling)
                     if vel.dy < 0 then vel.dy = 0 end
                 end
             end
         end
 
-        -- Ground probe: catches standing still on a surface
-        if not w.grounded[id].value then
-            local probeY = pos.y + col.oy + 1
+        -- Ground probe: Check 1 pixel below for standing-still state
+        if not grounded.value then
             for _, sid in ipairs(solids) do
-                local sc     = w.collider[sid]
-                local sx, sy = w.position[sid].x, w.position[sid].y
-                local ox     = (halfAW + sc.w * 0.5) - math.abs((pos.x + col.ox) - (sx + sc.ox))
-                local oy     = (halfAH + sc.h * 0.5) - math.abs(probeY - (sy + sc.oy))
-                if ox > 0 and oy > 0 and probeY < (sy + sc.oy) then
-                    w.grounded[id].value = true
+                local ox, oy, _, sy, sc = getOverlap(w, col, pos.x, pos.y + 1, sid)
+                -- Ensure we are actually above the solid we're probing
+                if ox > 0 and oy > 0 and (pos.y + col.oy + 1) < (sy + sc.oy) then
+                    grounded.value = true
                     break
                 end
             end
