@@ -1,4 +1,5 @@
 local C     = require "components"
+local Rng   = require "rng"
 
 ---@class World
 ---@field nextId number
@@ -22,19 +23,19 @@ local C     = require "components"
 ---@field shakeEvent table<integer, {intensity: number, duration: number, playerIndex: integer}>
 ---@field gravity table<integer, {g: number}>
 ---@field grounded table<integer, {value: boolean, wallDir: integer, framesSinceGrounded: integer, framesSinceJump: integer, framesSinceWall: integer, lastWallDir: integer}>
----@field rng love.RandomGenerator
+---@field rng Rng
 ---@field mapAssetId string|nil
 ---@field mapWidth  number
 ---@field mapHeight number
 local World = {}
 
----Creates a new world with all its components
+---Creates a new world with all its components.
 ---@return World
 function World.new()
     local w = {
         nextId     = 1,
         entities   = {},
-        rng        = love.math.newRandomGenerator(12345),
+        rng        = Rng.new(12345),
         mapAssetId = nil,
         mapWidth   = 0,
         mapHeight  = 0,
@@ -57,8 +58,8 @@ end
 
 function World.destroy(w, id)
     w.entities[id] = nil
-    for _, t in pairs(w) do
-        if type(t) == "table" and t ~= w.rng then t[id] = nil end
+    for _, name in pairs(C.Name) do
+        w[name][id] = nil
     end
 end
 
@@ -154,9 +155,12 @@ local SPECIAL_COPIERS = {
 ---@return table
 function World.saveState(w)
     local snap = {
-        nextId   = w.nextId,
-        rngState = w.rng:getState(),
-        entities = {},
+        nextId     = w.nextId,
+        rngState   = w.rng:getState(),
+        entities   = {},
+        mapAssetId = w.mapAssetId,
+        mapWidth   = w.mapWidth,
+        mapHeight  = w.mapHeight,
     }
 
     for id in pairs(w.entities) do

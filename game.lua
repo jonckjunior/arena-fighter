@@ -6,6 +6,7 @@ local Utils    = require "utils"
 local C        = require "components"
 local Maps     = require "maps"
 local Assets   = require "assets"
+local Rng      = require "rng"
 
 ---@class Game
 local Game     = {}
@@ -401,7 +402,7 @@ end
 
 function Game.runHeadlessTest(frames)
     print("Starting headless test for " .. frames .. " frames")
-    local rng = love.math.newRandomGenerator(9999)
+    local rng = Rng.new(9999)
     local originalGather = Systems.gatherLocalInput
 
     Systems.gatherLocalInput = function(playerIndex, w, mx, my, USE_NETWORK)
