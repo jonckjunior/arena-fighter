@@ -41,6 +41,8 @@ function World.new()
         mapHeight  = 0,
     }
     for _, name in pairs(C.Name) do
+        -- LuaLS thinks that C.Name could be rng so it complains, so I'm disabling it.
+        ---@diagnostic disable-next-line: missing-fields
         w[name] = {}
     end
     return w
