@@ -163,4 +163,8 @@ function C.shakeEvent(intensity, duration, playerIndex)
     return { intensity = intensity, duration = duration, playerIndex = playerIndex }
 end
 
+function C.solid()
+    return {}
+end
+
 return C

@@ -9,7 +9,7 @@ local C     = require "components"
 ---@field input table<integer, {up: boolean, dn: boolean, lt: boolean, rt: boolean, fire: boolean, reload: boolean, aimAngle: number, inputHistory: table[], historySize: integer}>
 ---@field speed table<integer, {value: number}>
 ---@field facing table<integer, {dir: number}>
----@field solid table<integer, boolean>
+---@field solid table<integer, {}>
 ---@field collider table<integer, {shape: "circle"|"rect", radius: number|nil, w: number|nil, h: number|nil, ox: integer, oy: integer}>
 ---@field gun table<integer, {cooldown: number, maxCooldown: number, damage: number, bulletSpeed: number, spread: number, bulletCount: integer, isReloading: boolean, reloadTime: number, reloadTimer: number, maxAmmo: integer, currentAmmo: integer}>
 ---@field bullet table<integer, {ownerId: integer, damage: number, graceFrames: integer}>

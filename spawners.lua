@@ -122,7 +122,7 @@ function Spawners.wall(w, x, y)
     local id        = World.newEntity(w)
     w.position[id]  = C.position(x, y)
     w.collider[id]  = C.rectCollider(16, 11, 0, 1)
-    w.solid[id]     = true
+    w.solid[id]     = C.solid()
     w.animation[id] = C.animation({
         love.graphics.newImage("Assets/Sprites/Tiles/Tiles/tile_0222.png")
     }, 0.1)
