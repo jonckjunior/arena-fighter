@@ -16,6 +16,7 @@
 ---@field WALL_JUMP_HORIZONTAL_SPEED number
 ---@field GROUND_LERP_RATE number
 ---@field AIR_LERP_RATE number
+---@field STANDARD_GRAVITY_BULLET integer
 
 local PLAYER_CONSTANTS = {
     JUMP_SPEED                 = 160,  -- pixels/s upward impulse
@@ -45,6 +46,8 @@ local PLAYER_CONSTANTS = {
     GROUND_LERP_RATE           = 0.35, -- snappy ground acceleration
     AIR_LERP_RATE              = 0.10, -- floaty air steering; lets wall jump impulse bleed off naturally
     ANIMATION_THRESHOLD_SPEED  = 5,
+
+    STANDARD_GRAVITY_BULLET    = 600, -- the standard bullet gravity
 }
 
 return PLAYER_CONSTANTS

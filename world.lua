@@ -1,9 +1,7 @@
-local C                = require "components"
-local STANDARD_GRAVITY = 600
+local C     = require "components"
 
 ---@class World
 ---@field nextId number
----@field STANDARD_GRAVITY number
 ---@field entities table<integer, boolean>
 ---@field position table<integer, {x: number, y: number, px: number, py: number}>
 ---@field velocity table<integer, {dx: number, dy: number}>
@@ -27,15 +25,14 @@ local STANDARD_GRAVITY = 600
 ---@field map love.Image
 ---@field mapWidth  number
 ---@field mapHeight number
-local World            = {}
+local World = {}
 
 ---Creates a new world with all its components
 ---@return World
 function World.new()
     local w = {
-        nextId           = 1,
-        entities         = {},
-        STANDARD_GRAVITY = STANDARD_GRAVITY
+        nextId   = 1,
+        entities = {},
     }
     for _, name in pairs(C.Name) do
         w[name] = {}
