@@ -3,8 +3,6 @@ local Spawners      = require "spawners"
 local C             = require "components"
 local FM            = require "fixedmath"
 
-local rng           = love.math.newRandomGenerator(12345)
-
 ---@class SystemsCombat
 local SystemsCombat = {}
 
@@ -79,7 +77,7 @@ function SystemsCombat.firing(w)
             local muzzleY = gunPos.y + FM.sin(angle) * (iw / 2)
 
             for i = 1, gun.bulletCount do
-                local spreadAngle = (rng:random() - 0.5) * 2 * gun.spread
+                local spreadAngle = (w.rng:random() - 0.5) * 2 * gun.spread
                 local a           = angle + spreadAngle
                 Spawners.bullet(w, ownerId, muzzleX, muzzleY,
                     FM.cos(a) * gun.bulletSpeed,
