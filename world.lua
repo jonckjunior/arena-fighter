@@ -84,4 +84,90 @@ function World.query(w, ...)
     return result
 end
 
+-- SAVE STATE ------------------------
+---@param comp table
+---@return table
+local function copyFlat(comp)
+    local copy = {}
+    for k, v in pairs(comp) do
+        copy[k] = v
+    end
+    return copy
+end
+
+---@param comp table
+---@return table
+local function copyAnimation(comp)
+    return {
+        frames    = comp.frames,
+        current   = comp.current,
+        timer     = comp.timer,
+        duration  = comp.duration,
+        isPlaying = comp.isPlaying,
+        angle     = comp.angle,
+        flipY     = comp.flipY,
+    }
+end
+
+---@param comp table
+---@return table
+local function copyInput(comp)
+    local history = {}
+    for i, entry in ipairs(comp.inputHistory) do
+        history[i] = {
+            up       = entry.up,
+            dn       = entry.dn,
+            lt       = entry.lt,
+            rt       = entry.rt,
+            fire     = entry.fire,
+            reload   = entry.reload,
+            aimAngle = entry.aimAngle,
+        }
+    end
+    return {
+        up           = comp.up,
+        dn           = comp.dn,
+        lt           = comp.lt,
+        rt           = comp.rt,
+        fire         = comp.fire,
+        reload       = comp.reload,
+        aimAngle     = comp.aimAngle,
+        inputHistory = history,
+        historySize  = comp.historySize,
+    }
+end
+
+local SPECIAL_COPIERS = {
+    animation = copyAnimation,
+    input     = copyInput,
+}
+
+---@param w World
+---@return table
+function World.saveState(w)
+    local snap = {
+        nextId   = w.nextId,
+        rngState = w.rng:getState(),
+        entities = {},
+    }
+
+    for id in pairs(w.entities) do
+        snap.entities[id] = true
+    end
+
+    for _, name in pairs(C.Name) do
+        local src    = w[name]
+        local dst    = {}
+        local copier = SPECIAL_COPIERS[name] or copyFlat
+        for id, comp in pairs(src) do
+            dst[id] = copier(comp)
+        end
+        snap[name] = dst
+    end
+
+    return snap
+end
+
+-- END SAVE STATE ------------------------
+
 return World
