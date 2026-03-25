@@ -79,5 +79,6 @@ end
 
 function love.keypressed(key)
     if key == "f1" then DEBUG = not DEBUG end
+    if key == "t" and game then game:rollbackToWindowStart() end
     if key == "escape" then love.event.quit() end
 end

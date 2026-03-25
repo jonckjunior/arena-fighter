@@ -409,6 +409,15 @@ function Game:rollbackToFrame(frame)
     return true
 end
 
+---@return boolean
+function Game:rollbackToWindowStart()
+    local frame = self.state.rollbackFrameWindow[1]
+    if frame == nil then
+        return false
+    end
+    return self:rollbackToFrame(frame)
+end
+
 ---@return number
 function Game:getDrawAlpha()
     if self.state.gameState == "playing" then
