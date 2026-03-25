@@ -231,7 +231,7 @@ function Game.draw(canvas)
         love.graphics.draw(Assets.getImage(state.world.mapAssetId), 0, 0)
     end
     local alpha = (state.gameState == "playing") and (state.accumulator / FIXED_DT) or 1.0
-    Systems.draw(state.world, alpha)
+    Systems.drawWorld(state.world, alpha)
     Systems.drawHpBars(state.world, alpha)
     Systems.drawReloadBars(state.world, alpha)
     --- END OF WORLD DRAW

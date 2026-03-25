@@ -1,7 +1,7 @@
 local SInput             = require "systems/systems_input"
 local SPhysics           = require "systems/systems_physics"
 local SCombat            = require "systems/systems_combat"
-local SRender            = require "systems/systems_render"
+local SPresent           = require "systems/systems_present"
 local SEffects           = require "systems/systems_effects"
 local SPresentCamera     = require "systems/systems_present_camera"
 local SPresentUi         = require "systems/systems_present_ui"
@@ -12,9 +12,9 @@ local Systems            = {}
 -- ── Re-export functions that game.lua calls directly ─────────────────────────
 
 Systems.gatherLocalInput = SInput.gatherLocalInput
-Systems.draw             = SRender.draw
-Systems.drawHpBars       = SRender.drawHpBars
-Systems.drawReloadBars   = SRender.drawReloadBars
+Systems.drawWorld        = SPresent.drawWorld
+Systems.drawHpBars       = SPresent.drawHpBars
+Systems.drawReloadBars   = SPresent.drawReloadBars
 Systems.shakeEvent       = SEffects.shakeEvent
 Systems.initCamera       = SPresentCamera.init
 Systems.updateCamera     = SPresentCamera.update
@@ -45,9 +45,7 @@ Systems.getRoundWinner   = SCombat.getRoundWinner
 --   updateGroundedTimer  — reads fresh grounded.value/wallDir → updates timers
 --   applyVelocity        — moves non-player entities (bullets)
 --   combat               — guns, bullets, damage, death, lifetime
---   updateFacing         — cosmetic, reads aimAngle
---   updateWalkAnimation  — cosmetic, reads velocity + grounded
---   animation            — advances sprite frames
+--   presentVisualState   — cosmetic, updates facing/walk state/animation
 --   presentEffects       — audio
 --   lifetime             — cleans up expired entities
 
@@ -57,7 +55,7 @@ Systems.getRoundWinner   = SCombat.getRoundWinner
 ---@param dt number
 function Systems.runSystems(w, frameInputs, localPlayerIndex, dt)
     SInput.applyInputs(w, frameInputs)
-    SRender.snapshotPositions(w)
+    SPresent.snapshotPositions(w)
     SPhysics.applyGravity(w, dt)
     SPhysics.applyHorizontalMovement(w)
     SPhysics.applyJump(w)
@@ -73,9 +71,7 @@ function Systems.runSystems(w, frameInputs, localPlayerIndex, dt)
     SCombat.bulletPlayerCollision(w)
     SCombat.bulletTerrainCollision(w)
     SCombat.death(w)
-    SRender.updateFacing(w)
-    SRender.updateWalkAnimation(w)
-    SRender.animation(w, dt)
+    SPresent.presentVisualState(w, dt)
     SEffects.presentEffects(w, localPlayerIndex)
     SCombat.lifetime(w, dt)
 end
