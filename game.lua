@@ -1,263 +1,234 @@
 local World    = require "world"
-local Systems  = require "systems"
+local Sim      = require "systems/systems_sim"
 local Spawners = require "spawners"
-local Lockstep = require "lockstep"
-local C        = require "components"
 local Maps     = require "maps"
-local Rng      = require "rng"
+local C        = require "components"
 
----@class Game
-local Game     = {}
-local FIXED_DT = 1 / 60
+---@class GameHooks
+---@field beforeSimulationTick fun(w: World)|nil
+---@field afterSimulationTick fun(w: World, dt: number)|nil
 
----@class GameUpdateOptions
----@field headless boolean
+---@class GameConfig
+---@field useNetwork boolean|nil
+---@field relayHost string|nil
+---@field relayPort integer|nil
+---@field numPlayers integer|nil
+---@field inputDelay integer|nil
+---@field localPlayerIndex integer|nil
+---@field roundsToWin integer|nil
+---@field fixedDt number|nil
+---@field hooks GameHooks|nil
 
--- ── Network config ────────────────────────────────────────────────────────────
-
----@class network
+---@class GameNetworkState
 ---@field USE_NETWORK boolean
----@field RELAY_HOST nil
+---@field RELAY_HOST string
 ---@field RELAY_PORT integer
 ---@field NUM_PLAYERS integer
 ---@field INPUT_DELAY integer
 ---@field networkIndex integer
 ---@field ls LockstepState|nil
-local network  = {}
 
--- ── State ─────────────────────────────────────────────────────────────────────
----@class state
+---@class GameState
 ---@field world World|nil
 ---@field accumulator number
 ---@field gameState "waiting"|"playing"|"roundOver"|"matchOver"
 ---@field roundWinner integer|nil
 ---@field matchWinner integer|nil
 ---@field waitTimer number
----@field scores table<integer,integer>
+---@field scores table<integer, integer>
 ---@field roundNumber integer
-local state    = {
-    world             = nil,
-    accumulator       = 0,
-    gameState         = "waiting",
-    roundWinner       = nil,
-    matchWinner       = nil,
-    waitTimer         = 0,
-    scores            = {},
-    roundNumber       = 0,
-    DRAW              = -1,
-    ROUNDS_TO_WIN     = 3,
-    localWantsRestart = false, -- true once this client has pressed R
-}
+---@field DRAW integer
+---@field ROUNDS_TO_WIN integer
+---@field localWantsRestart boolean
 
--- ── Init ──────────────────────────────────────────────────────────────────────
+---@class GameInstance
+---@field fixedDt number
+---@field hooks GameHooks
+---@field network GameNetworkState
+---@field state GameState
+local Game    = {}
+Game.__index  = Game
+Game.FIXED_DT = 1 / 60
 
-local function initNetwork()
-    network.USE_NETWORK  = false
-    network.RELAY_HOST   = "localhost"
-    network.RELAY_PORT   = 22122
-    network.NUM_PLAYERS  = 2
-    network.INPUT_DELAY  = 6
-    network.networkIndex = 1
-    network.ls           = nil
-end
-
--- ── Private ───────────────────────────────────────────────────────────────────
-local function startRound()
-    state.world       = Spawners.fromMapDef(Maps.arena)
-    state.gameState   = "waiting"
-    state.roundWinner = nil
-    state.waitTimer   = 0.0
-end
-
-local function startMatch()
-    state.scores = {}
-    for i = 1, network.NUM_PLAYERS do
-        state.scores[i] = 0
-    end
-    state.roundNumber       = 0
-    state.matchWinner       = nil
-    state.accumulator       = 0
-    state.localWantsRestart = false
-    startRound()
-end
-
-local function gatherFrameInputs(keysPressed)
-    local cursor = Systems.getCursorState()
-    if network.USE_NETWORK then
-        local myInput = Systems.gatherLocalInput(network.networkIndex, state.world, cursor.worldX, cursor.worldY, true,
-            keysPressed)
-        return Lockstep.tick(network.ls, myInput)
-    end
-
+local function newNetworkState(config)
     return {
-        [1] = Systems.gatherLocalInput(1, state.world, cursor.worldX, cursor.worldY, false, keysPressed),
-        [2] = Systems.gatherLocalInput(2, state.world, cursor.worldX, cursor.worldY, false, keysPressed),
+        USE_NETWORK = config.useNetwork or false,
+        RELAY_HOST = config.relayHost or "localhost",
+        RELAY_PORT = config.relayPort or 22122,
+        NUM_PLAYERS = config.numPlayers or 2,
+        INPUT_DELAY = config.inputDelay or 6,
+        networkIndex = config.localPlayerIndex or 1,
+        ls = nil,
     }
 end
 
-local function updateRoundState()
-    if not Systems.isRoundOver(state.world) then return end
+local function newGameState(config)
+    return {
+        world = nil,
+        accumulator = 0,
+        gameState = "waiting",
+        roundWinner = nil,
+        matchWinner = nil,
+        waitTimer = 0,
+        scores = {},
+        roundNumber = 0,
+        DRAW = -1,
+        ROUNDS_TO_WIN = config.roundsToWin or 3,
+        localWantsRestart = false,
+    }
+end
 
-    state.gameState   = "roundOver"
-    state.roundWinner = Systems.getRoundWinner(state.world)
+local function neutralInput()
+    return {
+        up = false,
+        dn = false,
+        lt = false,
+        rt = false,
+        fire = false,
+        reload = false,
+        aimAngle = 0,
+    }
+end
 
-    if state.roundWinner ~= state.DRAW then
-        state.scores[state.roundWinner] = state.scores[state.roundWinner] + 1
-        if state.scores[state.roundWinner] >= state.ROUNDS_TO_WIN then
-            state.matchWinner = state.roundWinner
-            state.gameState = "matchOver"
+local function getLockstep()
+    return require "lockstep"
+end
+
+---@param self GameInstance
+local function startRound(self)
+    self.state.world = Spawners.fromMapDef(Maps.arena)
+    self.state.gameState = "waiting"
+    self.state.roundWinner = nil
+    self.state.waitTimer = 0.0
+end
+
+---@param self GameInstance
+local function startMatch(self)
+    self.state.scores = {}
+    for i = 1, self.network.NUM_PLAYERS do
+        self.state.scores[i] = 0
+    end
+    self.state.roundNumber = 0
+    self.state.matchWinner = nil
+    self.state.accumulator = 0
+    self.state.localWantsRestart = false
+    startRound(self)
+end
+
+---@param self GameInstance
+local function updateRoundState(self)
+    if not Sim.isRoundOver(self.state.world) then return end
+
+    self.state.gameState = "roundOver"
+    self.state.roundWinner = Sim.getRoundWinner(self.state.world)
+
+    if self.state.roundWinner ~= self.state.DRAW then
+        self.state.scores[self.state.roundWinner] = self.state.scores[self.state.roundWinner] + 1
+        if self.state.scores[self.state.roundWinner] >= self.state.ROUNDS_TO_WIN then
+            self.state.matchWinner = self.state.roundWinner
+            self.state.gameState = "matchOver"
         else
-            state.gameState = "roundOver"
-            state.waitTimer = 2.0
+            self.state.gameState = "roundOver"
+            self.state.waitTimer = 2.0
         end
     end
 end
 
+---@param self GameInstance
 ---@param frameInputs table
----@param localPlayerIndex integer
----@param withPresentation boolean
-local function runFixedGameplayTick(frameInputs, localPlayerIndex, withPresentation)
-    Systems.snapshotPositions(state.world)
-    Systems.runSimulation(state.world, frameInputs, FIXED_DT)
-    if withPresentation then
-        Systems.runPresentationTick(state.world, localPlayerIndex, FIXED_DT)
+local function runFixedGameplayTick(self, frameInputs)
+    if self.hooks.beforeSimulationTick then
+        self.hooks.beforeSimulationTick(self.state.world)
+    end
+
+    Sim.runSimulation(self.state.world, frameInputs, self.fixedDt)
+
+    if self.hooks.afterSimulationTick then
+        self.hooks.afterSimulationTick(self.state.world, self.fixedDt)
+    elseif Sim.discardPresentationEvents then
+        Sim.discardPresentationEvents(self.state.world)
     end
 end
 
----@param keysPressed RawInput
----@param withPresentation boolean
-local function tickSimulation(keysPressed, withPresentation)
-    local frameInputs = gatherFrameInputs(keysPressed)
-    if not frameInputs then return end
+---@param self GameInstance
+---@param frameInputs table
+---@return table|nil
+local function resolveFrameInputs(self, frameInputs)
+    frameInputs = frameInputs or {}
+    if not self.network.USE_NETWORK then
+        return frameInputs
+    end
 
-    runFixedGameplayTick(frameInputs, network.networkIndex, withPresentation)
-    updateRoundState()
+    local localInput = frameInputs[self.network.networkIndex] or neutralInput()
+    return getLockstep().tick(self.network.ls, localInput)
 end
 
----Ticks the match over for network and local
----@param keysPressed RawInput
-local function tickMatchOver(keysPressed)
-    if network.USE_NETWORK then
-        if keysPressed["r"] then state.localWantsRestart = true end
-        local inp = {
+---@param self GameInstance
+---@param frameInputs table
+local function tickSimulation(self, frameInputs)
+    local resolved = resolveFrameInputs(self, frameInputs)
+    if not resolved then return end
+
+    runFixedGameplayTick(self, resolved)
+    updateRoundState(self)
+end
+
+---@param self GameInstance
+---@param frameInputs table
+local function tickMatchOver(self, frameInputs)
+    local localInput = (frameInputs and frameInputs[self.network.networkIndex]) or neutralInput()
+    if self.network.USE_NETWORK then
+        if localInput.reload then
+            self.state.localWantsRestart = true
+        end
+
+        local restartInputs = getLockstep().tick(self.network.ls, {
             up = false,
             dn = false,
             lt = false,
             rt = false,
             fire = false,
             aimAngle = 0,
-            reload = state.localWantsRestart,
-        }
-        local frameInputs = Lockstep.tick(network.ls, inp)
-        if frameInputs then
+            reload = self.state.localWantsRestart,
+        })
+
+        if restartInputs then
             local allReady = true
-            for i = 1, network.NUM_PLAYERS do
-                if not (frameInputs[i] and frameInputs[i].reload) then
-                    allReady = false; break
+            for i = 1, self.network.NUM_PLAYERS do
+                if not (restartInputs[i] and restartInputs[i].reload) then
+                    allReady = false
+                    break
                 end
             end
             if allReady then
-                startMatch()
-                return
+                startMatch(self)
             end
         end
     else
-        if keysPressed["r"] then
-            startMatch()
-            return
+        if localInput.reload then
+            startMatch(self)
         end
     end
 end
 
----@param keysPressed RawInput
----@param withPresentation boolean
-local function tickFixed(keysPressed, withPresentation)
-    if state.gameState == "waiting" then
-        state.waitTimer = state.waitTimer - FIXED_DT
-        if state.waitTimer <= 0 then
-            state.gameState = "playing"
+---@param self GameInstance
+---@param frameInputs table
+local function tickFixed(self, frameInputs)
+    if self.state.gameState == "waiting" then
+        self.state.waitTimer = self.state.waitTimer - self.fixedDt
+        if self.state.waitTimer <= 0 then
+            self.state.gameState = "playing"
         end
-    elseif state.gameState == "playing" then
-        tickSimulation(keysPressed, withPresentation)
-    elseif state.gameState == "roundOver" then
-        state.waitTimer = state.waitTimer - FIXED_DT
-        if state.waitTimer <= 0 then startRound() end
-    elseif state.gameState == "matchOver" then
-        tickMatchOver(keysPressed)
+    elseif self.state.gameState == "playing" then
+        tickSimulation(self, frameInputs)
+    elseif self.state.gameState == "roundOver" then
+        self.state.waitTimer = self.state.waitTimer - self.fixedDt
+        if self.state.waitTimer <= 0 then
+            startRound(self)
+        end
+    elseif self.state.gameState == "matchOver" then
+        tickMatchOver(self, frameInputs)
     end
-end
-
----@return number
-local function currentDrawAlpha()
-    if state.gameState == "playing" then
-        return state.accumulator / FIXED_DT
-    end
-    return 1.0
-end
-
--- ── Public API ────────────────────────────────────────────────────────────────
-
-function Game.load()
-    initNetwork()
-
-    if network.USE_NETWORK then
-        network.ls           = Lockstep.connect(network.RELAY_HOST, network.RELAY_PORT, network.NUM_PLAYERS,
-            network.INPUT_DELAY)
-        network.networkIndex = network.ls.myIndex
-        Lockstep.bootstrap(network.ls)
-    end
-
-    startMatch()
-end
-
----@param dt number
----@param keysPressed RawInput|nil
----@param options GameUpdateOptions|nil
-function Game.update(dt, keysPressed, options)
-    keysPressed = keysPressed or {}
-    options = options or {}
-    local withPresentation = not options.headless
-
-    -- Variable rate work: input I/O, networking, presentation camera.
-    if withPresentation then
-        Systems.updatePresentationInput(keysPressed)
-    end
-    if network.USE_NETWORK then
-        Lockstep.receive(network.ls)
-    end
-
-    state.accumulator = state.accumulator + dt
-    local maxTicksPerFrame = 6
-    local ticksThisFrame = 0
-    while state.accumulator >= FIXED_DT and ticksThisFrame < maxTicksPerFrame do
-        tickFixed(keysPressed, withPresentation)
-        state.accumulator = state.accumulator - FIXED_DT
-        ticksThisFrame = ticksThisFrame + 1
-    end
-
-    if withPresentation then
-        Systems.updatePresentationCamera(state.world, network.networkIndex, dt)
-    end
-end
-
-function Game.draw(canvas)
-    love.graphics.setCanvas(canvas)
-    love.graphics.clear(0.2, 0.2, 0.2)
-    Systems.drawWorldFrame(state.world, currentDrawAlpha())
-    love.graphics.setCanvas()
-    love.graphics.draw(canvas, 0, 0, 0, SCALE_FACTOR, SCALE_FACTOR)
-    Systems.drawScreenUi(
-        state.gameState,
-        state.waitTimer,
-        state.roundWinner,
-        state.DRAW,
-        network.USE_NETWORK,
-        state.localWantsRestart,
-        state.scores,
-        network.networkIndex,
-        network.USE_NETWORK and network.ls.frame or nil,
-        network.USE_NETWORK and network.ls.stalledFrames or nil
-    )
 end
 
 local function generateStateHash(w)
@@ -298,37 +269,104 @@ local function generateStateHash(w)
     return hash
 end
 
-function Game.runHeadlessTest(frames)
-    print("Starting headless test for " .. frames .. " frames")
-    local rng = Rng.new(9999)
-    Game.load()
+---@param config GameConfig|nil
+---@return GameInstance
+function Game.new(config)
+    config = config or {}
+    return setmetatable({
+        fixedDt = config.fixedDt or Game.FIXED_DT,
+        hooks = config.hooks or {},
+        network = newNetworkState(config),
+        state = newGameState(config),
+    }, Game)
+end
 
-    for i = 1, frames do
-        local rawInput = {
-            w = rng:random() > 0.8,
-            a = rng:random() > 0.5,
-            s = rng:random() > 0.8,
-            d = rng:random() > 0.5,
-            u = rng:random() > 0.8,
-            h = rng:random() > 0.5,
-            j = rng:random() > 0.8,
-            k = rng:random() > 0.5,
-            r = rng:random() > 0.5,
-            space = rng:random() > 0.9,
-            leftMouse = rng:random() > 0.9,
-            mouseX = 0,
-            mouseY = 0,
-        }
-        Game.update(FIXED_DT, rawInput, { headless = true })
+---@param hooks GameHooks|nil
+function Game:setHooks(hooks)
+    self.hooks = hooks or {}
+end
+
+function Game:load()
+    if self.network.USE_NETWORK then
+        local Lockstep = getLockstep()
+        self.network.ls = Lockstep.connect(
+            self.network.RELAY_HOST,
+            self.network.RELAY_PORT,
+            self.network.NUM_PLAYERS,
+            self.network.INPUT_DELAY
+        )
+        self.network.networkIndex = self.network.ls.myIndex
+        Lockstep.bootstrap(self.network.ls)
     end
 
-    local finalHash = generateStateHash(state.world)
-    print("=====================================")
-    print("Headless Test Complete.")
-    print("Final State Hash: " .. finalHash)
-    print("Number of entities with position: " .. #state.world.position)
-    print("=====================================")
-    love.event.quit()
+    startMatch(self)
+end
+
+---@param dt number
+---@param frameInputs table|nil
+function Game:update(dt, frameInputs)
+    frameInputs = frameInputs or {}
+
+    if self.network.USE_NETWORK then
+        getLockstep().receive(self.network.ls)
+    end
+
+    self.state.accumulator = self.state.accumulator + dt
+    local maxTicksPerFrame = 6
+    local ticksThisFrame = 0
+    while self.state.accumulator >= self.fixedDt and ticksThisFrame < maxTicksPerFrame do
+        tickFixed(self, frameInputs)
+        self.state.accumulator = self.state.accumulator - self.fixedDt
+        ticksThisFrame = ticksThisFrame + 1
+    end
+end
+
+---@return GameState
+function Game:getState()
+    return self.state
+end
+
+---@return World|nil
+function Game:getWorld()
+    return self.state.world
+end
+
+---@return GameNetworkState
+function Game:getNetworkState()
+    return self.network
+end
+
+---@return integer
+function Game:getLocalPlayerIndex()
+    return self.network.networkIndex
+end
+
+---@return integer
+function Game:getPlayerCount()
+    return self.network.NUM_PLAYERS
+end
+
+---@return boolean
+function Game:usesNetwork()
+    return self.network.USE_NETWORK
+end
+
+---@return number
+function Game:getFixedDt()
+    return self.fixedDt
+end
+
+---@return number
+function Game:getDrawAlpha()
+    if self.state.gameState == "playing" then
+        return self.state.accumulator / self.fixedDt
+    end
+    return 1.0
+end
+
+---@return integer
+function Game:getStateHash()
+    return generateStateHash(self.state.world)
 end
 
 return Game

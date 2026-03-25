@@ -1,12 +1,12 @@
-SCALE_FACTOR = 3
-VIEWPORT_W   = 480
-VIEWPORT_H   = 270
+SCALE_FACTOR  = 3
+VIEWPORT_W    = 480
+VIEWPORT_H    = 270
 
-local Game   = require "game"
+local Game    = require "game"
 local Runtime = require "systems/systems_present_runtime"
 local canvas
-DEBUG        = false
-MONKEY_PATCH = false
+local game
+DEBUG         = false
 
 ---@class RawInput
 ---@field w boolean
@@ -32,17 +32,11 @@ function love.load()
     canvas:setFilter("nearest", "nearest")
 
     love.mouse.setVisible(false)
+    Runtime.init()
 
-    if not MONKEY_PATCH then
-        Runtime.init()
-    end
-
-    if MONKEY_PATCH then
-        Game.runHeadlessTest(10000)
-        return
-    end
-
-    Game.load()
+    game = Game.new()
+    game:setHooks(Runtime.createGameHooks(game))
+    game:load()
 end
 
 ---@return RawInput
@@ -65,11 +59,16 @@ local function grabInput()
 end
 
 function love.update(dt)
-    Game.update(dt, grabInput())
+    if not game then return end
+    local rawInput = grabInput()
+    Runtime.updatePresentationInput(rawInput)
+    game:update(dt, Runtime.buildFrameInputs(game, rawInput))
+    Runtime.updatePresentationCamera(game:getWorld(), game:getLocalPlayerIndex(), dt)
 end
 
 function love.draw()
-    Game.draw(canvas)
+    if not game then return end
+    Runtime.drawGame(game, canvas)
 end
 
 function love.keypressed(key)

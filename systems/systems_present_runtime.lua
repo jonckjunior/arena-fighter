@@ -1,4 +1,5 @@
 local Assets         = require "assets"
+local SInput         = require "systems/systems_input"
 local SPresent       = require "systems/systems_present"
 local SEffects       = require "systems/systems_effects"
 local SPresentCamera = require "systems/systems_present_camera"
@@ -18,6 +19,44 @@ end
 function Runtime.updatePresentationInput(rawInput)
     local cameraX, cameraY = SPresentCamera.getPosition()
     SCursor.updateFromMouse(rawInput.mouseX or 0, rawInput.mouseY or 0, cameraX, cameraY)
+end
+
+---@param game GameInstance
+---@param rawInput RawInput
+---@return table
+function Runtime.buildFrameInputs(game, rawInput)
+    local world = game:getWorld()
+    if not world then return {} end
+
+    local cursor = SCursor.getState()
+    if game:usesNetwork() then
+        local playerIndex = game:getLocalPlayerIndex()
+        local raw = SInput.captureLocalInput(playerIndex, true, rawInput)
+        return {
+            [playerIndex] = SInput.mapLocalInput(playerIndex, world, cursor.worldX, cursor.worldY, raw),
+        }
+    end
+
+    local frameInputs = {}
+    for playerIndex = 1, game:getPlayerCount() do
+        local raw = SInput.captureLocalInput(playerIndex, false, rawInput)
+        frameInputs[playerIndex] = SInput.mapLocalInput(playerIndex, world, cursor.worldX, cursor.worldY, raw)
+    end
+    return frameInputs
+end
+
+---@param game GameInstance
+---@return GameHooks
+function Runtime.createGameHooks(game)
+    return {
+        beforeSimulationTick = function(w)
+            SPresent.snapshotPositions(w)
+        end,
+        afterSimulationTick = function(w, dt)
+            SPresent.presentVisualState(w, dt)
+            SEffects.presentEffects(w, game:getLocalPlayerIndex(), dt)
+        end,
+    }
 end
 
 ---@param w World
@@ -74,6 +113,35 @@ function Runtime.drawScreenUi(gameState, waitTimer, roundWinner, drawValue, useN
 
     SPresentUi.drawOverlays(gameState, waitTimer, roundWinner, drawValue, useNetwork, localWantsRestart)
     SPresentUi.drawScores(scores)
+end
+
+---@param game GameInstance
+---@param canvas love.Canvas
+function Runtime.drawGame(game, canvas)
+    local world = game:getWorld()
+    if not world then return end
+
+    local state = game:getState()
+    local network = game:getNetworkState()
+
+    love.graphics.setCanvas(canvas)
+    love.graphics.clear(0.2, 0.2, 0.2)
+    Runtime.drawWorldFrame(world, game:getDrawAlpha())
+    love.graphics.setCanvas()
+    love.graphics.draw(canvas, 0, 0, 0, SCALE_FACTOR, SCALE_FACTOR)
+
+    Runtime.drawScreenUi(
+        state.gameState,
+        state.waitTimer,
+        state.roundWinner,
+        state.DRAW,
+        game:usesNetwork(),
+        state.localWantsRestart,
+        state.scores,
+        network.networkIndex,
+        game:usesNetwork() and network.ls and network.ls.frame or nil,
+        game:usesNetwork() and network.ls and network.ls.stalledFrames or nil
+    )
 end
 
 return Runtime
