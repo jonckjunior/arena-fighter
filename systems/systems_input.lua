@@ -4,7 +4,7 @@ local Utils        = require "utils"
 
 ---@class SystemsInput
 local SystemsInput = {}
-local atan2        = math.atan2 or function(y, x) return math.atan(y, x) end
+local atan2        = math.atan2 or function(y, x) return math.atan(y / x) end
 
 local function getPlayerGun(w, playerId)
     local guns = World.query(w, C.Name.equippedBy, C.Name.position, C.Name.animation)

@@ -82,17 +82,6 @@ function Runtime.updatePresentationCamera(w, localPlayerIndex, dt)
 end
 
 ---@param w World
----@param localPlayerIndex integer
----@param dt number
-function Runtime.runPresentationTick(w, localPlayerIndex, dt)
-    SPresentPose.updateFacing(w)
-    SPresentPose.updateWalkAnimation(w)
-    SPresentPose.updateGunPresentation(w)
-    SPresentPose.animation(w, dt)
-    SEffects.presentEffects(w, localPlayerIndex, dt)
-end
-
----@param w World
 ---@param alpha number
 function Runtime.drawWorldFrame(w, alpha)
     local cameraX, cameraY = SPresentCamera.getPosition()

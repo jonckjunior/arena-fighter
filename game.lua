@@ -36,7 +36,6 @@ local C        = require "components"
 ---@field matchWinner integer|nil
 ---@field waitTimer number
 ---@field scores table<integer, integer>
----@field roundNumber integer
 ---@field DRAW integer
 ---@field ROUNDS_TO_WIN integer
 ---@field localWantsRestart boolean
@@ -71,7 +70,6 @@ local function newGameState(config)
         matchWinner = nil,
         waitTimer = 0,
         scores = {},
-        roundNumber = 0,
         DRAW = -1,
         ROUNDS_TO_WIN = config.roundsToWin or 3,
         localWantsRestart = false,
@@ -108,7 +106,6 @@ local function startMatch(self)
     for i = 1, self.network.NUM_PLAYERS do
         self.state.scores[i] = 0
     end
-    self.state.roundNumber = 0
     self.state.matchWinner = nil
     self.state.accumulator = 0
     self.state.localWantsRestart = false
