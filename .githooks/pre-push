@@ -1,0 +1,20 @@
+#!/bin/sh
+
+set -eu
+
+run_tests=false
+
+while read -r local_ref local_sha remote_ref remote_sha
+do
+    if [ "$remote_ref" = "refs/heads/main" ]; then
+        run_tests=true
+        break
+    fi
+done
+
+if [ "$run_tests" != "true" ]; then
+    exit 0
+fi
+
+echo "pre-push: running lua_test.lua before pushing to main"
+lua lua_test.lua
