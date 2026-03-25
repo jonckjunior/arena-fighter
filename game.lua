@@ -11,6 +11,9 @@ local Rng      = require "rng"
 local Game     = {}
 local FIXED_DT = 1 / 60
 
+---@class GameUpdateOptions
+---@field headless boolean
+
 -- ── Network config ────────────────────────────────────────────────────────────
 
 ---@class network
@@ -168,14 +171,15 @@ local function tickMatchOver(keysPressed)
 end
 
 ---@param keysPressed RawInput
-local function tickFixed(keysPressed)
+---@param withPresentation boolean
+local function tickFixed(keysPressed, withPresentation)
     if state.gameState == "waiting" then
         state.waitTimer = state.waitTimer - FIXED_DT
         if state.waitTimer <= 0 then
             state.gameState = "playing"
         end
     elseif state.gameState == "playing" then
-        tickSimulation(keysPressed, true)
+        tickSimulation(keysPressed, withPresentation)
     elseif state.gameState == "roundOver" then
         state.waitTimer = state.waitTimer - FIXED_DT
         if state.waitTimer <= 0 then startRound() end
@@ -210,10 +214,17 @@ function Game.load()
 end
 
 ---@param dt number
----@param keysPressed RawInput
-function Game.update(dt, keysPressed)
+---@param keysPressed RawInput|nil
+---@param options GameUpdateOptions|nil
+function Game.update(dt, keysPressed, options)
+    keysPressed = keysPressed or {}
+    options = options or {}
+    local withPresentation = not options.headless
+
     -- Variable rate work: input I/O, networking, presentation camera.
-    Systems.updatePresentationInput(keysPressed)
+    if withPresentation then
+        Systems.updatePresentationInput(keysPressed)
+    end
     if network.USE_NETWORK then
         Lockstep.receive(network.ls)
     end
@@ -222,12 +233,14 @@ function Game.update(dt, keysPressed)
     local maxTicksPerFrame = 6
     local ticksThisFrame = 0
     while state.accumulator >= FIXED_DT and ticksThisFrame < maxTicksPerFrame do
-        tickFixed(keysPressed)
+        tickFixed(keysPressed, withPresentation)
         state.accumulator = state.accumulator - FIXED_DT
         ticksThisFrame = ticksThisFrame + 1
     end
 
-    Systems.updatePresentationCamera(state.world, network.networkIndex, dt)
+    if withPresentation then
+        Systems.updatePresentationCamera(state.world, network.networkIndex, dt)
+    end
 end
 
 function Game.draw(canvas)
@@ -307,12 +320,22 @@ function Game.runHeadlessTest(frames)
     Game.load()
 
     for i = 1, frames do
-        local frameInputs = {
-            [1] = Systems.gatherLocalInput(1, state.world, 0, 0, false, {}),
-            [2] = Systems.gatherLocalInput(2, state.world, 0, 0, false, {}),
+        local rawInput = {
+            w = rng:random() > 0.8,
+            a = rng:random() > 0.5,
+            s = rng:random() > 0.8,
+            d = rng:random() > 0.5,
+            u = rng:random() > 0.8,
+            h = rng:random() > 0.5,
+            j = rng:random() > 0.8,
+            k = rng:random() > 0.5,
+            r = rng:random() > 0.5,
+            space = rng:random() > 0.9,
+            leftMouse = rng:random() > 0.9,
+            mouseX = 0,
+            mouseY = 0,
         }
-        runFixedGameplayTick(frameInputs, network.networkIndex, false)
-        updateRoundState()
+        Game.update(FIXED_DT, rawInput, { headless = true })
     end
 
     local finalHash = generateStateHash(state.world)

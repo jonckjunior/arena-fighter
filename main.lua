@@ -32,11 +32,6 @@ function love.load()
 
     love.mouse.setVisible(false)
 
-    if MONKEY_PATCH then
-        Game.runHeadlessTest(10000)
-        return
-    end
-
     Game.load()
 end
 
@@ -60,10 +55,11 @@ local function grabInput()
 end
 
 function love.update(dt)
-    Game.update(dt, grabInput())
+    Game.update(dt, grabInput(), { headless = MONKEY_PATCH })
 end
 
 function love.draw()
+    if MONKEY_PATCH then return end
     Game.draw(canvas)
 end
 
