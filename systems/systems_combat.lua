@@ -37,7 +37,7 @@ end
 ---Keeps equipped guns positioned at the owner's muzzle offset.
 ---@param w World
 function SystemsCombat.gunFollow(w)
-    local guns = World.query(w, C.Name.equippedBy, C.Name.position, C.Name.animation)
+    local guns = World.query(w, C.Name.equippedBy, C.Name.position)
     for _, gid in ipairs(guns) do
         local ownerId = w.equippedBy[gid].ownerId
         local pos     = w.position[ownerId]
@@ -48,9 +48,6 @@ function SystemsCombat.gunFollow(w)
         local offset           = 4
         w.position[gid].x      = pos.x + FM.cos(angle) * offset
         w.position[gid].y      = pos.y + FM.sin(angle) * offset
-
-        w.animation[gid].angle = angle
-        w.animation[gid].flipY = FM.cos(angle) < 0 and -1 or 1
         ::continue::
     end
 end
@@ -58,12 +55,11 @@ end
 ---Spawns bullets when fire input is held and gun is off cooldown.
 ---@param w World
 function SystemsCombat.firing(w)
-    local guns = World.query(w, C.Name.gun, C.Name.equippedBy, C.Name.position, C.Name.animation)
+    local guns = World.query(w, C.Name.gun, C.Name.equippedBy, C.Name.position)
     for _, gid in ipairs(guns) do
         local gun     = w.gun[gid]
         local eq      = w.equippedBy[gid]
         local gunPos  = w.position[gid]
-        local anim    = w.animation[gid]
         local ownerId = eq.ownerId
         local inp     = w.input[ownerId]
         if not inp then goto continue end

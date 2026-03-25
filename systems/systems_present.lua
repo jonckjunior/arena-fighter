@@ -16,6 +16,7 @@ end
 function SystemsPresent.presentVisualState(w, dt)
     SPresentPose.updateFacing(w)
     SPresentPose.updateWalkAnimation(w)
+    SPresentPose.updateGunPresentation(w)
     SPresentPose.animation(w, dt)
 end
 

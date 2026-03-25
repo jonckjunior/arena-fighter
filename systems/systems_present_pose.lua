@@ -37,6 +37,24 @@ function SystemsPresentPose.updateWalkAnimation(w)
     end
 end
 
+---Updates cosmetic gun orientation from the owner's aim.
+--- Producer: input.aimAngle
+--- Consumer: animation.angle, animation.flipY
+---@param w World
+function SystemsPresentPose.updateGunPresentation(w)
+    for _, gid in ipairs(World.query(w, C.Name.equippedBy, C.Name.animation)) do
+        local ownerId = w.equippedBy[gid].ownerId
+        local inp     = w.input[ownerId]
+        local anim    = w.animation[gid]
+        if not inp or not anim then goto continue end
+
+        anim.angle = inp.aimAngle
+        anim.flipY = FM.cos(inp.aimAngle) < 0 and -1 or 1
+
+        ::continue::
+    end
+end
+
 ---Advances sprite animation timers and cycles frames.
 ---@param w World
 ---@param dt number
