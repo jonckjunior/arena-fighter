@@ -91,35 +91,44 @@ local function startMatch()
     startRound()
 end
 
-local function tickSimulation(keysPressed)
-    local frameInputs
+---@param keysPressed table<string, boolean>
+---@return table|nil
+local function gatherFrameInputs(keysPressed)
     if network.USE_NETWORK then
         local myInput = Systems.gatherLocalInput(network.networkIndex, state.world, cursor.x, cursor.y, true, keysPressed)
-        frameInputs = Lockstep.tick(network.ls, myInput)
-        if not frameInputs then return end
-    else
-        frameInputs = {
-            [1] = Systems.gatherLocalInput(1, state.world, cursor.x, cursor.y, false, keysPressed),
-            [2] = Systems.gatherLocalInput(2, state.world, cursor.x, cursor.y, false, keysPressed),
-        }
+        return Lockstep.tick(network.ls, myInput)
     end
 
-    Systems.runSystems(state.world, frameInputs, network.networkIndex, FIXED_DT)
-    if Systems.isRoundOver(state.world) then
-        state.gameState   = "roundOver"
-        state.roundWinner = Systems.getRoundWinner(state.world)
+    return {
+        [1] = Systems.gatherLocalInput(1, state.world, cursor.x, cursor.y, false, keysPressed),
+        [2] = Systems.gatherLocalInput(2, state.world, cursor.x, cursor.y, false, keysPressed),
+    }
+end
 
-        if state.roundWinner ~= state.DRAW then
-            state.scores[state.roundWinner] = state.scores[state.roundWinner] + 1
-            if state.scores[state.roundWinner] >= state.ROUNDS_TO_WIN then
-                state.matchWinner = state.roundWinner
-                state.gameState = "matchOver"
-            else
-                state.gameState = "roundOver"
-                state.waitTimer = 2.0
-            end
+local function updateRoundState()
+    if not Systems.isRoundOver(state.world) then return end
+
+    state.gameState   = "roundOver"
+    state.roundWinner = Systems.getRoundWinner(state.world)
+
+    if state.roundWinner ~= state.DRAW then
+        state.scores[state.roundWinner] = state.scores[state.roundWinner] + 1
+        if state.scores[state.roundWinner] >= state.ROUNDS_TO_WIN then
+            state.matchWinner = state.roundWinner
+            state.gameState = "matchOver"
+        else
+            state.gameState = "roundOver"
+            state.waitTimer = 2.0
         end
     end
+end
+
+local function tickSimulation(keysPressed)
+    local frameInputs = gatherFrameInputs(keysPressed)
+    if not frameInputs then return end
+
+    Systems.runSystems(state.world, frameInputs, network.networkIndex, FIXED_DT)
+    updateRoundState()
 end
 
 ---Ticks the match over for network and local
@@ -173,6 +182,59 @@ local function tickFixed(keysPressed)
     end
 end
 
+local function updateCursorFromCamera()
+    local cameraX, cameraY = Systems.getCameraPosition()
+    cursor.x = love.mouse.getX() / SCALE_FACTOR + cameraX
+    cursor.y = love.mouse.getY() / SCALE_FACTOR + cameraY
+end
+
+---@return number
+local function currentDrawAlpha()
+    if state.gameState == "playing" then
+        return state.accumulator / FIXED_DT
+    end
+    return 1.0
+end
+
+---@param canvas Canvas
+local function drawWorldToCanvas(canvas)
+    local cameraX, cameraY = Systems.getCameraPosition()
+    local shakeX, shakeY = Systems.getCameraShakeOffset()
+    local alpha = currentDrawAlpha()
+
+    love.graphics.setCanvas(canvas)
+    love.graphics.clear(0.2, 0.2, 0.2)
+    love.graphics.push()
+    love.graphics.translate(-cameraX + shakeX, -cameraY + shakeY)
+
+    if state.world.mapAssetId then
+        love.graphics.draw(Assets.getImage(state.world.mapAssetId), 0, 0)
+    end
+    Systems.drawWorld(state.world, alpha)
+    Systems.drawHpBars(state.world, alpha)
+    Systems.drawReloadBars(state.world, alpha)
+
+    love.graphics.pop()
+    Systems.drawCursor(cursor.spriteId)
+    love.graphics.setCanvas()
+end
+
+local function drawScreenUi()
+    if network.USE_NETWORK then
+        Systems.drawNetworkDebug(network.networkIndex, network.ls.frame, network.ls.stalledFrames)
+    end
+
+    Systems.drawOverlays(
+        state.gameState,
+        state.waitTimer,
+        state.roundWinner,
+        state.DRAW,
+        network.USE_NETWORK,
+        state.localWantsRestart
+    )
+    Systems.drawScores(state.scores)
+end
+
 -- ── Public API ────────────────────────────────────────────────────────────────
 
 function Game.load()
@@ -192,10 +254,8 @@ function Game.load()
 end
 
 function Game.update(dt, keysPressed)
-    -- Variable rate: I/O and visuals only
-    local cameraX, cameraY = Systems.getCameraPosition()
-    cursor.x = love.mouse.getX() / SCALE_FACTOR + cameraX
-    cursor.y = love.mouse.getY() / SCALE_FACTOR + cameraY
+    -- Variable rate work: input I/O, networking, presentation camera.
+    updateCursorFromCamera()
     if network.USE_NETWORK then
         Lockstep.receive(network.ls)
     end
@@ -213,43 +273,9 @@ function Game.update(dt, keysPressed)
 end
 
 function Game.draw(canvas)
-    local cameraX, cameraY = Systems.getCameraPosition()
-    local shakeX, shakeY = Systems.getCameraShakeOffset()
-
-    love.graphics.setCanvas(canvas)
-    love.graphics.clear(0.2, 0.2, 0.2)
-    love.graphics.push()
-    love.graphics.translate(-cameraX + shakeX, -cameraY + shakeY)
-
-    --- WORLD DRAW
-    if state.world.mapAssetId then
-        love.graphics.draw(Assets.getImage(state.world.mapAssetId), 0, 0)
-    end
-    local alpha = (state.gameState == "playing") and (state.accumulator / FIXED_DT) or 1.0
-    Systems.drawWorld(state.world, alpha)
-    Systems.drawHpBars(state.world, alpha)
-    Systems.drawReloadBars(state.world, alpha)
-    --- END OF WORLD DRAW
-
-    love.graphics.pop()
-    Systems.drawCursor(cursor.spriteId)
-    love.graphics.setCanvas()
-
+    drawWorldToCanvas(canvas)
     love.graphics.draw(canvas, 0, 0, 0, SCALE_FACTOR, SCALE_FACTOR)
-
-    if network.USE_NETWORK then
-        Systems.drawNetworkDebug(network.networkIndex, network.ls.frame, network.ls.stalledFrames)
-    end
-
-    Systems.drawOverlays(
-        state.gameState,
-        state.waitTimer,
-        state.roundWinner,
-        state.DRAW,
-        network.USE_NETWORK,
-        state.localWantsRestart
-    )
-    Systems.drawScores(state.scores)
+    drawScreenUi()
 end
 
 local function generateStateHash(w)
