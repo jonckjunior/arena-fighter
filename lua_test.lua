@@ -404,12 +404,99 @@ local function assertSnapshotRoundTrip()
         "writeState should preserve animation frame ordering")
 end
 
+local function assertRollback()
+    local game = Game.new({ rollbackWindowSize = 5 })
+    game:load()
+
+    assert(game:getSimulationFrame() == 0, "Simulation frame should start at 0")
+    assert(not game:canRollbackToFrame(0), "Rollback history should be empty before playing starts")
+
+    waitForPlaying(game)
+    assert(game:getState().gameState == "playing", "Fixture should reach playing state")
+    assert(game:getSimulationFrame() == 0, "Entering playing should not advance the simulation frame yet")
+    assert(not game:canRollbackToFrame(0), "Entering playing should not create a snapshot until the first gameplay tick")
+
+    local duel = prepareControlledDuel(game)
+    local rollbackInputs = playerFireInputs(-math.pi / 2, false)
+
+    advanceFrames(game, rollbackInputs, 1)
+    assert(game:getSimulationFrame() == 1, "First playing tick should advance the simulation frame to 1")
+    assert(game:canRollbackToFrame(0), "First playing tick should record the start-of-frame-0 snapshot")
+
+    local snapshot0 = World.saveState(game:getWorld())
+    local hash0 = World.hashState(snapshot0)
+
+    advanceUntil(game, function()
+        if game:getSimulationFrame() < 3 then
+            return false
+        end
+
+        for _ in pairs(game:getWorld().bullet) do
+            return true
+        end
+        return false
+    end, framesForSeconds(2, game:getFixedDt(), 0), rollbackInputs)
+
+    local targetFrame = game:getSimulationFrame() - 1
+    assert(targetFrame >= 1, "Fixture should advance beyond the first recorded frame")
+    assert(game:canRollbackToFrame(targetFrame), "Recently simulated frames should be rollbackable")
+    local targetHash = World.hashState(game:getState().rollbackSnapshotsByFrame[targetFrame])
+
+    local staleId = World.newEntity(game:getWorld())
+    game:getWorld().position[staleId] = { x = 999, y = 999, px = 999, py = 999 }
+    game:getWorld().velocity[staleId] = { dx = 1, dy = 2 }
+
+    advanceFrames(game, rollbackInputs, 2)
+    local changedHash = World.hashState(World.saveState(game:getWorld()))
+    assert(changedHash ~= hash0, "Later simulation should diverge from the first post-tick world state")
+
+    local missingFrame = game:getSimulationFrame() + 10
+    local preMissingHash = World.hashState(World.saveState(game:getWorld()))
+    assert(not game:rollbackToFrame(missingFrame), "Rollback to an unknown frame should fail")
+    assert(
+        World.hashState(World.saveState(game:getWorld())) == preMissingHash,
+        "Failed rollback should leave the world unchanged"
+    )
+
+    assert(game:rollbackToFrame(targetFrame), "Rollback to a recorded frame should succeed")
+    assert(game:getSimulationFrame() == targetFrame, "Rollback should restore the requested simulation frame")
+    assert(game:getDrawAlpha() == 0, "Rollback should clear interpolation state by resetting the accumulator")
+
+    local rolledBackSnapshot = World.saveState(game:getWorld())
+    local rolledBackHash = World.hashState(rolledBackSnapshot)
+    assert(rolledBackHash == targetHash, "Rollback should restore the exact target snapshot")
+
+    assert(game:getWorld().entities[staleId] == nil, "Rollback should remove entities created after the target frame")
+    assert(game:getWorld().position[staleId] == nil and game:getWorld().velocity[staleId] == nil,
+        "Rollback should remove later component data")
+
+    assert(game:getWorld().gun[duel.shooterGunId].isReloading == rolledBackSnapshot.gun[duel.shooterGunId].isReloading,
+        "Rollback should restore gun reload state")
+    assert(game:getWorld().input[duel.shooterId].inputHistory[1].fire == rolledBackSnapshot.input[duel.shooterId].inputHistory[1].fire,
+        "Rollback should restore input history")
+    assert(not game:canRollbackToFrame(targetFrame + 1), "Rollback should discard future history beyond the restored frame")
+
+    advanceFrames(game, rollbackInputs, 7)
+    assert(not game:canRollbackToFrame(0), "History should evict the oldest frame once it exceeds the rollback cap")
+    assert(game:canRollbackToFrame(game:getSimulationFrame() - 1), "Recent frames should remain rollbackable after pruning")
+
+    knockOutPlayer(game, 2)
+    assert(game:getState().gameState == "roundOver", "Fixture should enter roundOver after a knockout")
+    local roundRestartFrames = framesForSeconds(game:getState().waitTimer, game:getFixedDt(), 6)
+    advanceUntil(game, function()
+        return game:getState().gameState == "playing"
+    end, roundRestartFrames)
+    assert(game:getSimulationFrame() == 0, "Starting a new round should reset the simulation frame")
+    assert(not game:canRollbackToFrame(0), "Starting a new round should clear rollback history")
+end
+
 local deterministicHash = assertDeterminism()
 assertLifecycle()
 assertCombatPathKnockout()
 assertReload()
 assertDrawFlow()
 assertSnapshotRoundTrip()
+assertRollback()
 
 print("lua_test.lua passed")
 print("Deterministic hash: " .. deterministicHash)

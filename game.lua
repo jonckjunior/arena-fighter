@@ -17,6 +17,7 @@ local C        = require "components"
 ---@field localPlayerIndex integer|nil
 ---@field roundsToWin integer|nil
 ---@field fixedDt number|nil
+---@field rollbackWindowSize integer|nil
 ---@field hooks GameHooks|nil
 
 ---@class GameNetworkState
@@ -39,9 +40,14 @@ local C        = require "components"
 ---@field DRAW integer
 ---@field ROUNDS_TO_WIN integer
 ---@field localWantsRestart boolean
+---@field simulationFrame integer
+---@field rollbackSnapshotsByFrame table<integer, table>
+---@field rollbackFrameWindow integer[]
+---@field rollbackWindowSize integer
 
 ---@class GameInstance
 ---@field fixedDt number
+---@field rollbackWindowSize integer
 ---@field hooks GameHooks
 ---@field network GameNetworkState
 ---@field state GameState
@@ -73,6 +79,10 @@ local function newGameState(config)
         DRAW = -1,
         ROUNDS_TO_WIN = config.roundsToWin or 3,
         localWantsRestart = false,
+        simulationFrame = 0,
+        rollbackSnapshotsByFrame = {},
+        rollbackFrameWindow = {},
+        rollbackWindowSize = config.rollbackWindowSize or 120,
     }
 end
 
@@ -81,11 +91,53 @@ local function getLockstep()
 end
 
 ---@param self GameInstance
+local function clearRollbackHistory(self)
+    self.state.simulationFrame = 0
+    self.state.rollbackSnapshotsByFrame = {}
+    self.state.rollbackFrameWindow = {}
+end
+
+---@param self GameInstance
+local function saveRollbackSnapshot(self)
+    local frame = self.state.simulationFrame
+    local snapshotsByFrame = self.state.rollbackSnapshotsByFrame
+    local frameWindow = self.state.rollbackFrameWindow
+
+    if not snapshotsByFrame[frame] then
+        frameWindow[#frameWindow + 1] = frame
+    end
+    snapshotsByFrame[frame] = World.saveState(self.state.world)
+
+    while #frameWindow > self.state.rollbackWindowSize do
+        local oldestFrame = table.remove(frameWindow, 1)
+        snapshotsByFrame[oldestFrame] = nil
+    end
+end
+
+---@param self GameInstance
+---@param frame integer
+local function discardRollbackFramesAfter(self, frame)
+    local keptFrames = {}
+    local keptSnapshots = {}
+
+    for _, recordedFrame in ipairs(self.state.rollbackFrameWindow) do
+        if recordedFrame <= frame then
+            keptFrames[#keptFrames + 1] = recordedFrame
+            keptSnapshots[recordedFrame] = self.state.rollbackSnapshotsByFrame[recordedFrame]
+        end
+    end
+
+    self.state.rollbackFrameWindow = keptFrames
+    self.state.rollbackSnapshotsByFrame = keptSnapshots
+end
+
+---@param self GameInstance
 local function startRound(self)
     self.state.world = Spawners.fromMapDef(Maps.arena)
     self.state.gameState = "waiting"
     self.state.roundWinner = nil
     self.state.waitTimer = 0.0
+    clearRollbackHistory(self)
 end
 
 ---@param self GameInstance
@@ -122,6 +174,8 @@ end
 ---@param self GameInstance
 ---@param frameInputs FrameInputs
 local function runFixedGameplayTick(self, frameInputs)
+    saveRollbackSnapshot(self)
+
     if self.hooks.beforeSimulationTick then
         self.hooks.beforeSimulationTick(self.state.world)
     end
@@ -133,6 +187,8 @@ local function runFixedGameplayTick(self, frameInputs)
     elseif Sim.discardPresentationEvents then
         Sim.discardPresentationEvents(self.state.world)
     end
+
+    self.state.simulationFrame = self.state.simulationFrame + 1
 end
 
 ---@param self GameInstance
@@ -247,6 +303,7 @@ function Game.new(config)
     config = config or {}
     return setmetatable({
         fixedDt = config.fixedDt or Game.FIXED_DT,
+        rollbackWindowSize = config.rollbackWindowSize or 120,
         hooks = config.hooks or {},
         network = newNetworkState(config),
         state = newGameState(config),
@@ -324,6 +381,32 @@ end
 ---@return number
 function Game:getFixedDt()
     return self.fixedDt
+end
+
+---@return integer
+function Game:getSimulationFrame()
+    return self.state.simulationFrame
+end
+
+---@param frame integer
+---@return boolean
+function Game:canRollbackToFrame(frame)
+    return self.state.rollbackSnapshotsByFrame[frame] ~= nil
+end
+
+---@param frame integer
+---@return boolean
+function Game:rollbackToFrame(frame)
+    local snapshot = self.state.rollbackSnapshotsByFrame[frame]
+    if not snapshot then
+        return false
+    end
+
+    World.writeState(self.state.world, snapshot)
+    self.state.simulationFrame = frame
+    self.state.accumulator = 0
+    discardRollbackFramesAfter(self, frame)
+    return true
 end
 
 ---@return number
