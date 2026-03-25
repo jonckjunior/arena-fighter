@@ -44,6 +44,9 @@ local C        = require "components"
 ---@field rollbackSnapshotsByFrame table<integer, table>
 ---@field rollbackFrameWindow integer[]
 ---@field rollbackWindowSize integer
+---@field predictedInputsByFrame table<integer, FrameInputs>
+---@field earliestDirtyFrame integer|nil
+---@field confirmedInputsForDirtyFrame FrameInputs|nil
 
 ---@class GameInstance
 ---@field fixedDt number
@@ -83,6 +86,9 @@ local function newGameState(config)
         rollbackSnapshotsByFrame = {},
         rollbackFrameWindow = {},
         rollbackWindowSize = config.rollbackWindowSize or 120,
+        predictedInputsByFrame = {},
+        earliestDirtyFrame = nil,
+        confirmedInputsForDirtyFrame = nil,
     }
 end
 
@@ -90,11 +96,88 @@ local function getLockstep()
     return require "lockstep"
 end
 
+---@param frameInputs FrameInputs
+---@return FrameInputs
+local function copyFrameInputs(frameInputs)
+    local copiedInputs = {}
+
+    for playerIndex, input in pairs(frameInputs) do
+        copiedInputs[playerIndex] = {
+            up = input.up,
+            dn = input.dn,
+            lt = input.lt,
+            rt = input.rt,
+            fire = input.fire,
+            reload = input.reload,
+            aimAngle = input.aimAngle,
+        }
+    end
+
+    return copiedInputs
+end
+
+---@param self GameInstance
+---@param frame integer
+---@param frameInputs FrameInputs
+local function recordPredictedInputs(self, frame, frameInputs)
+    self.state.predictedInputsByFrame[frame] = copyFrameInputs(frameInputs)
+end
+
+---@param lhs FrameInput|nil
+---@param rhs FrameInput|nil
+---@return boolean
+local function inputsDiffer(lhs, rhs)
+    if lhs == nil or rhs == nil then
+        return lhs ~= rhs
+    end
+
+    return lhs.up ~= rhs.up
+        or lhs.dn ~= rhs.dn
+        or lhs.lt ~= rhs.lt
+        or lhs.rt ~= rhs.rt
+        or lhs.fire ~= rhs.fire
+        or lhs.reload ~= rhs.reload
+        or lhs.aimAngle ~= rhs.aimAngle
+end
+
+---@param self GameInstance
+---@param frame integer
+---@param confirmedInputs FrameInputs
+local function markDirtyIfConfirmedInputsDiffer(self, frame, confirmedInputs)
+    local predictedInputs = self.state.predictedInputsByFrame[frame]
+    if not predictedInputs then
+        return
+    end
+
+    local mismatched = false
+
+    for playerIndex = 1, self.network.NUM_PLAYERS do
+        if inputsDiffer(predictedInputs and predictedInputs[playerIndex], confirmedInputs[playerIndex]) then
+            mismatched = true
+            break
+        end
+    end
+
+    if mismatched then
+        local isEarlier = self.state.earliestDirtyFrame == nil
+            or frame <= self.state.earliestDirtyFrame
+        if isEarlier then
+            self.state.confirmedInputsForDirtyFrame = copyFrameInputs(confirmedInputs)
+        end
+        self.state.earliestDirtyFrame = self.state.earliestDirtyFrame
+            and math.min(self.state.earliestDirtyFrame, frame)
+            or frame
+    end
+end
+
 ---@param self GameInstance
 local function clearRollbackHistory(self)
     self.state.simulationFrame = 0
     self.state.rollbackSnapshotsByFrame = {}
     self.state.rollbackFrameWindow = {}
+    self.state.predictedInputsByFrame = {}
+    self.state.earliestDirtyFrame = nil
+    self.state.confirmedInputsForDirtyFrame = nil
 end
 
 ---@param self GameInstance
@@ -111,6 +194,7 @@ local function saveRollbackSnapshot(self)
     while #frameWindow > self.state.rollbackWindowSize do
         local oldestFrame = table.remove(frameWindow, 1)
         snapshotsByFrame[oldestFrame] = nil
+        self.state.predictedInputsByFrame[oldestFrame] = nil
     end
 end
 
@@ -119,16 +203,19 @@ end
 local function discardRollbackFramesAfter(self, frame)
     local keptFrames = {}
     local keptSnapshots = {}
+    local keptPredictedInputs = {}
 
     for _, recordedFrame in ipairs(self.state.rollbackFrameWindow) do
         if recordedFrame <= frame then
             keptFrames[#keptFrames + 1] = recordedFrame
             keptSnapshots[recordedFrame] = self.state.rollbackSnapshotsByFrame[recordedFrame]
+            keptPredictedInputs[recordedFrame] = self.state.predictedInputsByFrame[recordedFrame]
         end
     end
 
     self.state.rollbackFrameWindow = keptFrames
     self.state.rollbackSnapshotsByFrame = keptSnapshots
+    self.state.predictedInputsByFrame = keptPredictedInputs
 end
 
 ---@param self GameInstance
@@ -171,18 +258,82 @@ local function updateRoundState(self)
     end
 end
 
+local runFixedGameplayTick
+
+---@param self GameInstance
+local function clearDirtyPrediction(self)
+    self.state.earliestDirtyFrame = nil
+    self.state.confirmedInputsForDirtyFrame = nil
+end
+
+---@param self GameInstance
+local function reconcileDirtyFrames(self)
+    local dirtyFrame = self.state.earliestDirtyFrame
+    if dirtyFrame == nil then
+        return
+    end
+
+    if not self.state.rollbackSnapshotsByFrame[dirtyFrame] then
+        print(string.format("[prediction] Missing rollback snapshot for dirty frame %d; clearing dirty state.",
+            dirtyFrame))
+        clearDirtyPrediction(self)
+        return
+    end
+
+    local replayEndFrame = self.state.simulationFrame
+    local confirmedDirtyInputs = self.state.confirmedInputsForDirtyFrame
+    local replayInputsByFrame = {}
+
+    if dirtyFrame < replayEndFrame and not confirmedDirtyInputs then
+        print(string.format("[prediction] Missing confirmed inputs for dirty frame %d; clearing dirty state.", dirtyFrame))
+        clearDirtyPrediction(self)
+        return
+    end
+
+    for replayFrame = dirtyFrame, replayEndFrame - 1 do
+        local replayInputs = replayFrame == dirtyFrame and confirmedDirtyInputs
+            or self.state.predictedInputsByFrame[replayFrame]
+
+        if not replayInputs then
+            print(string.format("[prediction] Missing replay inputs for frame %d; clearing dirty state.", replayFrame))
+            clearDirtyPrediction(self)
+            return
+        end
+
+        replayInputsByFrame[replayFrame] = replayInputs
+    end
+
+    self:rollbackToFrame(dirtyFrame)
+
+    while self.state.simulationFrame < replayEndFrame do
+        local replayFrame = self.state.simulationFrame
+        local replayInputs = replayInputsByFrame[replayFrame]
+        runFixedGameplayTick(self, replayInputs, true)
+    end
+
+    clearDirtyPrediction(self)
+end
+
 ---@param self GameInstance
 ---@param frameInputs FrameInputs
-local function runFixedGameplayTick(self, frameInputs)
+---@param isReplay boolean|nil
+runFixedGameplayTick = function(self, frameInputs, isReplay)
+    if not isReplay and self.state.predictedInputsByFrame[self.state.simulationFrame] == nil then
+        recordPredictedInputs(self, self.state.simulationFrame, frameInputs)
+    end
     saveRollbackSnapshot(self)
 
-    if self.hooks.beforeSimulationTick then
+    if not isReplay and self.hooks.beforeSimulationTick then
         self.hooks.beforeSimulationTick(self.state.world)
     end
 
     Sim.runSimulation(self.state.world, frameInputs, self.fixedDt)
 
-    if self.hooks.afterSimulationTick then
+    if isReplay then
+        if Sim.discardPresentationEvents then
+            Sim.discardPresentationEvents(self.state.world)
+        end
+    elseif self.hooks.afterSimulationTick then
         self.hooks.afterSimulationTick(self.state.world, self.fixedDt)
     elseif Sim.discardPresentationEvents then
         Sim.discardPresentationEvents(self.state.world)
@@ -238,10 +389,18 @@ local function tickFixed(self, frameInputs)
             self.state.gameState = "playing"
         end
     elseif self.state.gameState == "playing" then
+        reconcileDirtyFrames(self)
+
         if self.network.USE_NETWORK then
+            -- Lockstep currently returns the confirmed inputs for the frame we are
+            -- about to simulate. Only compare against frames we have actually
+            -- predicted already; the current raw local input is for a future
+            -- target frame under lockstep delay, not necessarily this frame.
+            local currentFrame = self.state.simulationFrame
             local localInput = frameInputs[self.network.networkIndex]
             local syncedInputs = getLockstep().tick(self.network.ls, localInput)
             if syncedInputs then
+                markDirtyIfConfirmedInputsDiffer(self, currentFrame, syncedInputs)
                 runFixedGameplayTick(self, syncedInputs)
                 updateRoundState(self)
             end

@@ -126,13 +126,19 @@ end
 ---@param ls  LockstepState
 ---@param inp table   raw input for our player (up/dn/lt/rt/fire/aimAngle)
 function Lockstep.send(ls, inp)
-    local targetFrame = ls.frame + ls.inputDelay
+    Lockstep.sendPredicted(ls, ls.frame + ls.inputDelay, inp)
+end
 
-    -- Guard: the tick loop can run multiple times per love.update when catching up.
-    -- Only send once per target frame.
+--- Store + send a predicted local input for an explicit target frame.
+---@param ls LockstepState
+---@param targetFrame integer
+---@param inp table
+function Lockstep.sendPredicted(ls, targetFrame, inp)
     if ls.lastSentFrame and ls.lastSentFrame >= targetFrame then return end
     ls.lastSentFrame = targetFrame
 
+    ls.inputBuffer[targetFrame]             = ls.inputBuffer[targetFrame] or {}
+    ls.inputBuffer[targetFrame][ls.myIndex] = Lockstep.quantizeInput(inp)
     ls.server:send(packInput(ls.myIndex, targetFrame, inp))
     ls.host:flush()
 end
@@ -221,6 +227,14 @@ function Lockstep.bootstrap(ls)
     ls.lastSentFrame = ls.inputDelay - 1
 end
 
+---@param ls LockstepState
+function Lockstep.resetRound(ls)
+    ls.frame = 0
+    ls.inputBuffer = {}
+    ls.stalledFrames = 0
+    Lockstep.bootstrap(ls)
+end
+
 --- Call once per simulation tick (inside the accumulator loop).
 --- Sends local input, then tries to consume the current frame.
 --- Returns frameInputs if all players are ready, nil if stalling.
@@ -230,14 +244,7 @@ end
 function Lockstep.tick(ls, myInput)
     local targetFrame = ls.frame + ls.inputDelay
 
-    local alreadySent = ls.lastSentFrame and ls.lastSentFrame >= targetFrame
-
-    if not alreadySent then
-        -- Store + send ONLY the first time we hit this target frame
-        ls.inputBuffer[targetFrame]             = ls.inputBuffer[targetFrame] or {}
-        ls.inputBuffer[targetFrame][ls.myIndex] = Lockstep.quantizeInput(myInput)
-        Lockstep.send(ls, myInput) -- this sets lastSentFrame
-    end
+    Lockstep.sendPredicted(ls, targetFrame, myInput)
 
     if not Lockstep.ready(ls) then
         ls.stalledFrames = ls.stalledFrames + 1

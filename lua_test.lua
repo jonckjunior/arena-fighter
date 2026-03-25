@@ -490,6 +490,365 @@ local function assertRollback()
     assert(not game:canRollbackToFrame(0), "Starting a new round should clear rollback history")
 end
 
+local function assertPredictedInputHistory()
+    local game = Game.new({ rollbackWindowSize = 3 })
+    game:load()
+
+    waitForPlaying(game)
+
+    local firstInputs = neutralFrameInputs()
+    game:update(game:getFixedDt(), firstInputs)
+
+    local predicted0 = game:getState().predictedInputsByFrame[0]
+    assert(predicted0 ~= nil, "First simulated frame should record predicted inputs")
+    assert(predicted0[1] ~= firstInputs[1], "Predicted input history should store copied per-player tables")
+    assert(predicted0[1].aimAngle == firstInputs[1].aimAngle, "Predicted input history should preserve aim angle")
+    assert(predicted0[2].aimAngle == firstInputs[2].aimAngle, "Predicted input history should preserve remote aim angle")
+
+    firstInputs[1].fire = true
+    firstInputs[1].aimAngle = 123
+    assert(not predicted0[1].fire, "Predicted input history should not be rewritten by later caller mutations")
+    assert(predicted0[1].aimAngle == 0, "Predicted input history should keep the original copied value")
+
+    advanceFrames(game, function(frame)
+        local inputs = neutralFrameInputs()
+        inputs[1].aimAngle = frame * 0.25
+        return inputs
+    end, 4)
+
+    local predictedInputsByFrame = game:getState().predictedInputsByFrame
+    assert(predictedInputsByFrame[0] == nil, "Predicted input history should evict the oldest frame with snapshots")
+    assert(predictedInputsByFrame[1] == nil, "Predicted input history should follow the exact snapshot eviction window")
+    assert(predictedInputsByFrame[2] ~= nil, "Frames still inside the rollback window should retain predicted inputs")
+    assert(predictedInputsByFrame[4] ~= nil, "Latest simulated frame should retain predicted inputs")
+
+    assert(game:rollbackToFrame(2), "Rollback fixture should restore to a retained frame")
+    predictedInputsByFrame = game:getState().predictedInputsByFrame
+    assert(predictedInputsByFrame[3] == nil and predictedInputsByFrame[4] == nil,
+        "Rollback should prune predicted input history beyond the restored frame")
+    assert(predictedInputsByFrame[2] ~= nil, "Rollback should retain predicted input history up to the restored frame")
+end
+
+local function assertPredictionReplay()
+    local referenceGame = Game.new()
+    referenceGame:load()
+    prepareControlledDuel(referenceGame)
+
+    local controlGame = Game.new()
+    controlGame:load()
+    prepareControlledDuel(controlGame)
+
+    local beforeTicks = 0
+    local afterTicks = 0
+    local replayGame = Game.new({
+        hooks = {
+            beforeSimulationTick = function()
+                beforeTicks = beforeTicks + 1
+            end,
+            afterSimulationTick = function()
+                afterTicks = afterTicks + 1
+            end,
+        },
+    })
+    replayGame:load()
+    prepareControlledDuel(replayGame)
+
+    local neutralInputs = neutralFrameInputs()
+    local correctedInputs = playerFireInputs(0, false)()
+
+    referenceGame:update(referenceGame:getFixedDt(), neutralFrameInputs())
+    referenceGame:update(referenceGame:getFixedDt(), correctedInputs)
+    referenceGame:update(referenceGame:getFixedDt(), neutralFrameInputs())
+    referenceGame:update(referenceGame:getFixedDt(), neutralFrameInputs())
+
+    controlGame:update(controlGame:getFixedDt(), neutralFrameInputs())
+    controlGame:update(controlGame:getFixedDt(), neutralFrameInputs())
+    controlGame:update(controlGame:getFixedDt(), neutralFrameInputs())
+    controlGame:update(controlGame:getFixedDt(), neutralFrameInputs())
+
+    replayGame:update(replayGame:getFixedDt(), neutralFrameInputs())
+    replayGame:update(replayGame:getFixedDt(), neutralInputs)
+    replayGame:update(replayGame:getFixedDt(), neutralFrameInputs())
+
+    assert(beforeTicks == 3 and afterTicks == 3, "Initial live simulation should invoke hooks once per tick before replay")
+
+    replayGame:getState().earliestDirtyFrame = 1
+    replayGame:getState().confirmedInputsForDirtyFrame = correctedInputs
+
+    replayGame:update(replayGame:getFixedDt(), neutralFrameInputs())
+
+    assert(beforeTicks == 4 and afterTicks == 4,
+        "Replayed frames should skip hooks while the new live tick still invokes them")
+    assert(replayGame:getState().earliestDirtyFrame == nil, "Replay should clear the dirty frame marker once complete")
+    assert(replayGame:getState().confirmedInputsForDirtyFrame == nil,
+        "Replay should clear stored confirmed dirty-frame inputs once complete")
+    assert(replayGame:getSimulationFrame() == 4, "Replay fixture should finish on the same frame as the reference timeline")
+    assert(replayGame:getStateHash() == referenceGame:getStateHash(),
+        "Replay should reproduce the corrected timeline's deterministic state")
+    assert(replayGame:getStateHash() ~= controlGame:getStateHash(),
+        "Replay should differ from an uncorrected timeline when the dirty frame changes gameplay")
+end
+
+local function assertNetworkPredictionMismatchDetection()
+    local originalLockstep = package.loaded["lockstep"]
+    local fakeLockstep
+    fakeLockstep = {
+        receive = function() end,
+        sendPredicted = function(ls, targetFrame, localInput)
+            if ls.lastSentFrame and ls.lastSentFrame >= targetFrame then
+                return
+            end
+            ls.lastSentFrame = targetFrame
+            ls.lastSentTargetFrame = targetFrame
+            ls.lastLocalInput = {
+                up = localInput.up,
+                dn = localInput.dn,
+                lt = localInput.lt,
+                rt = localInput.rt,
+                fire = localInput.fire,
+                reload = localInput.reload,
+                aimAngle = localInput.aimAngle,
+            }
+            ls.inputBuffer[targetFrame] = ls.inputBuffer[targetFrame] or {}
+            ls.inputBuffer[targetFrame][ls.myIndex] = {
+                up = localInput.up,
+                dn = localInput.dn,
+                lt = localInput.lt,
+                rt = localInput.rt,
+                fire = localInput.fire,
+                reload = localInput.reload,
+                aimAngle = localInput.aimAngle,
+            }
+        end,
+        ready = function(ls)
+            local bucket = ls.inputBuffer[ls.frame]
+            if not bucket then return false end
+            for playerIndex = 1, ls.numPlayers do
+                if not bucket[playerIndex] then
+                    return false
+                end
+            end
+            return true
+        end,
+        consume = function(ls)
+            local inputs = ls.inputBuffer[ls.frame]
+            ls.inputBuffer[ls.frame] = nil
+            ls.frame = ls.frame + 1
+            return inputs
+        end,
+    }
+
+    package.loaded["lockstep"] = fakeLockstep
+
+    local ok, err = pcall(function()
+        local game = Game.new()
+        game:load()
+        local duel = prepareControlledDuel(game)
+
+        game:getNetworkState().USE_NETWORK = true
+        game:getNetworkState().networkIndex = 1
+        game:getNetworkState().NUM_PLAYERS = 2
+        game:getNetworkState().INPUT_DELAY = 2
+        game:getNetworkState().ls = {
+            frame = 0,
+            inputDelay = 2,
+            inputBuffer = {},
+            lastSentFrame = nil,
+            myIndex = 1,
+            numPlayers = 2,
+        }
+        game:getState().lastKnownInputByPlayer[2] = {
+            up = false,
+            dn = false,
+            lt = false,
+            rt = true,
+            fire = false,
+            reload = false,
+            aimAngle = math.pi,
+        }
+
+        game:update(game:getFixedDt(), {
+            [1] = { up = false, dn = false, lt = false, rt = false, fire = false, reload = false, aimAngle = 0 },
+        })
+
+        assert(game:getSimulationFrame() == 1, "Network prediction should advance gameplay even when the current frame is unconfirmed")
+        assert(game:getWorld().input[duel.targetId].inputHistory[1].rt,
+            "Missing remote input should fall back to last-known input instead of stalling")
+        assert(game:getNetworkState().ls.lastSentTargetFrame == 2,
+            "Local input should be queued for the delayed future target frame")
+        assert(game:getState().predictedInputsByFrame[0][2].rt,
+            "Predicted history should record the fallback remote input that was actually simulated")
+
+        game:getNetworkState().ls.inputBuffer[0] = {
+            [1] = { up = false, dn = false, lt = false, rt = false, fire = false, reload = false, aimAngle = 0 },
+            [2] = { up = false, dn = false, lt = false, rt = false, fire = false, reload = false, aimAngle = math.pi },
+        }
+
+        game:update(game:getFixedDt(), {
+            [1] = { up = false, dn = false, lt = false, rt = false, fire = false, reload = false, aimAngle = 0 },
+        })
+
+        assert(game:getState().lastKnownInputByPlayer[2].rt == false,
+            "Confirmed inputs should update the remote player's last-known fallback input")
+        assert(game:getState().earliestDirtyFrame == 0, "Confirmed mismatch should dirty the predicted frame once it is confirmed")
+        assert(game:getState().confirmedInputsForDirtyFrame ~= nil,
+            "Mismatch should store the dirty frame's confirmed inputs for later replay")
+        assert(not game:getState().confirmedInputsForDirtyFrame[2].rt,
+            "Stored dirty-frame confirmed inputs should preserve the confirmed remote correction")
+        assert(game:getState().predictedInputsByFrame[0][2].rt,
+            "Dirty-frame confirmation should not overwrite the original predicted history for that frame")
+        assert(game:getNetworkState().ls.lastLocalInput.fire == false,
+            "Network branch should still send the local input for lockstep's future target frame")
+
+        game:update(game:getFixedDt(), {
+            [1] = { up = false, dn = false, lt = false, rt = false, fire = false, reload = false, aimAngle = 0 },
+        })
+
+        local referenceGame = Game.new()
+        referenceGame:load()
+        local referenceDuel = prepareControlledDuel(referenceGame)
+        referenceGame:update(referenceGame:getFixedDt(), {
+            [1] = { up = false, dn = false, lt = false, rt = false, fire = false, reload = false, aimAngle = 0 },
+            [2] = { up = false, dn = false, lt = false, rt = false, fire = false, reload = false, aimAngle = math.pi },
+        })
+        referenceGame:update(referenceGame:getFixedDt(), {
+            [1] = { up = false, dn = false, lt = false, rt = false, fire = false, reload = false, aimAngle = 0 },
+            [2] = { up = false, dn = false, lt = false, rt = true, fire = false, reload = false, aimAngle = math.pi },
+        })
+        referenceGame:update(referenceGame:getFixedDt(), {
+            [1] = { up = false, dn = false, lt = false, rt = false, fire = false, reload = false, aimAngle = 0 },
+            [2] = { up = false, dn = false, lt = false, rt = false, fire = false, reload = false, aimAngle = math.pi },
+        })
+
+        assert(game:getState().earliestDirtyFrame == nil,
+            "Replay should clear dirty state on the next predicted tick after confirmation")
+        assert(game:getState().confirmedInputsForDirtyFrame == nil,
+            "Replay should clear stored dirty-frame confirmations after correcting the timeline")
+        assert(game:getSimulationFrame() == 3, "Network prediction fixture should advance through the reconciliation tick")
+        assert(game:getStateHash() == referenceGame:getStateHash(),
+            "Predicted network play should reconcile back to the corrected deterministic timeline")
+        assert(game:getWorld().input[duel.targetId].inputHistory[1].rt == false,
+            "After reconciliation and new prediction, remote fallback should use the updated confirmed input")
+        assert(referenceGame:getWorld().input[referenceDuel.targetId].inputHistory[1].rt == false,
+            "Reference timeline should end with the corrected non-moving remote input")
+    end)
+
+    package.loaded["lockstep"] = originalLockstep
+
+    if not ok then
+        error(err)
+    end
+end
+
+local function assertNetworkRoundResetResetsLockstepState()
+    local originalLockstep = package.loaded["lockstep"]
+    local fakeLockstep
+    fakeLockstep = {
+        connect = function(_, _, numPlayers, inputDelay)
+            return {
+                frame = 0,
+                inputDelay = inputDelay,
+                inputBuffer = {},
+                lastSentFrame = nil,
+                myIndex = 1,
+                numPlayers = numPlayers,
+                resetRoundCalls = 0,
+                sendTargets = {},
+            }
+        end,
+        bootstrap = function(ls)
+            for frame = 0, ls.inputDelay - 1 do
+                ls.inputBuffer[frame] = {}
+                for playerIndex = 1, ls.numPlayers do
+                    ls.inputBuffer[frame][playerIndex] = {
+                        up = false,
+                        dn = false,
+                        lt = false,
+                        rt = false,
+                        fire = false,
+                        reload = false,
+                        aimAngle = playerIndex == 1 and 0 or math.pi,
+                    }
+                end
+            end
+            ls.lastSentFrame = ls.inputDelay - 1
+        end,
+        resetRound = function(ls)
+            ls.resetRoundCalls = ls.resetRoundCalls + 1
+            ls.frame = 0
+            ls.inputBuffer = {}
+            ls.stalledFrames = 0
+            fakeLockstep.bootstrap(ls)
+        end,
+        receive = function() end,
+        sendPredicted = function(ls, targetFrame, localInput)
+            if ls.lastSentFrame and ls.lastSentFrame >= targetFrame then
+                return
+            end
+            ls.lastSentFrame = targetFrame
+            ls.sendTargets[#ls.sendTargets + 1] = targetFrame
+            ls.inputBuffer[targetFrame] = ls.inputBuffer[targetFrame] or {}
+            ls.inputBuffer[targetFrame][ls.myIndex] = {
+                up = localInput.up,
+                dn = localInput.dn,
+                lt = localInput.lt,
+                rt = localInput.rt,
+                fire = localInput.fire,
+                reload = localInput.reload,
+                aimAngle = localInput.aimAngle,
+            }
+        end,
+        ready = function() return false end,
+        consume = function()
+            error("consume should not be called in round reset regression test")
+        end,
+    }
+
+    package.loaded["lockstep"] = fakeLockstep
+
+    local ok, err = pcall(function()
+        local game = Game.new({ useNetwork = true, inputDelay = 2 })
+        game:load()
+        local duel = prepareControlledDuel(game)
+        local ls = game:getNetworkState().ls
+
+        game:update(game:getFixedDt(), {
+            [1] = { up = false, dn = false, lt = false, rt = false, fire = false, reload = false, aimAngle = 0 },
+        })
+        assert(ls.sendTargets[#ls.sendTargets] == 2,
+            "First round should enqueue the first predicted local input at the delayed target frame")
+
+        ls.frame = 9
+        ls.lastSentFrame = 11
+        knockOutPlayer(game, 2)
+        local roundRestartFrames = framesForSeconds(game:getState().waitTimer, game:getFixedDt(), 6)
+        advanceUntil(game, function()
+            return game:getState().gameState == "playing"
+        end, roundRestartFrames)
+
+        assert(ls.resetRoundCalls >= 2,
+            "Network round start should reset lockstep state on both initial load and subsequent round restart")
+        assert(ls.frame == 0, "Round restart should reset the lockstep confirmation cursor")
+        assert(ls.lastSentFrame == ls.inputDelay - 1,
+            "Round restart should reset the send guard so new predicted inputs can be sent again")
+
+        game:update(game:getFixedDt(), {
+            [1] = { up = false, dn = false, lt = false, rt = false, fire = false, reload = false, aimAngle = 0 },
+        })
+
+        assert(ls.sendTargets[#ls.sendTargets] == 2,
+            "After round restart the next predicted input should be enqueued from the start-of-round delay again")
+        assert(game:getWorld().input[duel.targetId].inputHistory[1].fire == false,
+            "Regression fixture should still leave the restarted round in a normal neutral input state")
+    end)
+
+    package.loaded["lockstep"] = originalLockstep
+
+    if not ok then
+        error(err)
+    end
+end
+
 local deterministicHash = assertDeterminism()
 assertLifecycle()
 assertCombatPathKnockout()
@@ -497,6 +856,10 @@ assertReload()
 assertDrawFlow()
 assertSnapshotRoundTrip()
 assertRollback()
+assertPredictedInputHistory()
+assertPredictionReplay()
+assertNetworkPredictionMismatchDetection()
+assertNetworkRoundResetResetsLockstepState()
 
 print("lua_test.lua passed")
 print("Deterministic hash: " .. deterministicHash)
