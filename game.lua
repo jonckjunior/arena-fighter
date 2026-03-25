@@ -45,9 +45,9 @@ local C        = require "components"
 ---@field hooks GameHooks
 ---@field network GameNetworkState
 ---@field state GameState
-local Game    = {}
-Game.__index  = Game
-Game.FIXED_DT = 1 / 60
+local Game     = {}
+Game.__index   = Game
+Game.FIXED_DT  = 1 / 60
 
 local function newNetworkState(config)
     return {
@@ -73,18 +73,6 @@ local function newGameState(config)
         DRAW = -1,
         ROUNDS_TO_WIN = config.roundsToWin or 3,
         localWantsRestart = false,
-    }
-end
-
-local function neutralInput()
-    return {
-        up = false,
-        dn = false,
-        lt = false,
-        rt = false,
-        fire = false,
-        reload = false,
-        aimAngle = 0,
     }
 end
 
@@ -132,7 +120,7 @@ local function updateRoundState(self)
 end
 
 ---@param self GameInstance
----@param frameInputs table
+---@param frameInputs FrameInputs
 local function runFixedGameplayTick(self, frameInputs)
     if self.hooks.beforeSimulationTick then
         self.hooks.beforeSimulationTick(self.state.world)
@@ -148,22 +136,9 @@ local function runFixedGameplayTick(self, frameInputs)
 end
 
 ---@param self GameInstance
----@param frameInputs table
----@return table|nil
-local function resolveFrameInputs(self, frameInputs)
-    frameInputs = frameInputs or {}
-    if not self.network.USE_NETWORK then
-        return frameInputs
-    end
-
-    local localInput = frameInputs[self.network.networkIndex] or neutralInput()
-    return getLockstep().tick(self.network.ls, localInput)
-end
-
----@param self GameInstance
----@param frameInputs table
+---@param frameInputs FrameInputs
 local function tickMatchOver(self, frameInputs)
-    local localInput = (frameInputs and frameInputs[self.network.networkIndex]) or neutralInput()
+    local localInput = frameInputs[self.network.networkIndex]
     if self.network.USE_NETWORK then
         if localInput.reload then
             self.state.localWantsRestart = true
@@ -199,7 +174,7 @@ local function tickMatchOver(self, frameInputs)
 end
 
 ---@param self GameInstance
----@param frameInputs table
+---@param frameInputs FrameInputs
 local function tickFixed(self, frameInputs)
     if self.state.gameState == "waiting" then
         self.state.waitTimer = self.state.waitTimer - self.fixedDt
@@ -207,9 +182,15 @@ local function tickFixed(self, frameInputs)
             self.state.gameState = "playing"
         end
     elseif self.state.gameState == "playing" then
-        local resolved = resolveFrameInputs(self, frameInputs)
-        if resolved then
-            runFixedGameplayTick(self, resolved)
+        if self.network.USE_NETWORK then
+            local localInput = frameInputs[self.network.networkIndex]
+            local syncedInputs = getLockstep().tick(self.network.ls, localInput)
+            if syncedInputs then
+                runFixedGameplayTick(self, syncedInputs)
+                updateRoundState(self)
+            end
+        else
+            runFixedGameplayTick(self, frameInputs)
             updateRoundState(self)
         end
     elseif self.state.gameState == "roundOver" then
@@ -294,10 +275,8 @@ function Game:load()
 end
 
 ---@param dt number
----@param frameInputs table|nil
+---@param frameInputs FrameInputs
 function Game:update(dt, frameInputs)
-    frameInputs = frameInputs or {}
-
     if self.network.USE_NETWORK then
         getLockstep().receive(self.network.ls)
     end
@@ -317,7 +296,7 @@ function Game:getState()
     return self.state
 end
 
----@return World|nil
+---@return World
 function Game:getWorld()
     return self.state.world
 end

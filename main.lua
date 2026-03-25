@@ -6,6 +6,7 @@ local Game         = require "game"
 local SHandleInput = require "systems/systems_handle_input"
 local Runtime      = require "systems/systems_present_runtime"
 local canvas
+---@type GameInstance
 local game
 DEBUG              = false
 
