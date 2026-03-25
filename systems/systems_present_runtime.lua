@@ -33,16 +33,14 @@ function Runtime.buildFrameInputs(game, rawInput)
     local targetX, targetY = cursor.worldX, cursor.worldY
     if game:usesNetwork() then
         local playerIndex = game:getLocalPlayerIndex()
-        local raw = SInput.captureLocalInput(playerIndex, true, rawInput)
         return {
-            [playerIndex] = SInput.mapLocalInput(playerIndex, world, targetX, targetY, raw),
+            [playerIndex] = SInput.gatherLocalInput(playerIndex, world, targetX, targetY, true, rawInput),
         }
     end
 
     local frameInputs = {}
     for playerIndex = 1, game:getPlayerCount() do
-        local raw = SInput.captureLocalInput(playerIndex, false, rawInput)
-        frameInputs[playerIndex] = SInput.mapLocalInput(playerIndex, world, targetX, targetY, raw)
+        frameInputs[playerIndex] = SInput.gatherLocalInput(playerIndex, world, targetX, targetY, false, rawInput)
     end
     return frameInputs
 end
