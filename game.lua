@@ -120,11 +120,6 @@ local function tickSimulation(keysPressed)
             end
         end
     end
-
-
-    local intensity, duration = Systems.shakeEvent(state.world, network.networkIndex)
-    Systems.consumeShake(intensity, duration)
-    Systems.tickCameraShake(FIXED_DT)
 end
 
 ---Ticks the match over for network and local

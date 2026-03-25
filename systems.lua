@@ -15,7 +15,6 @@ Systems.gatherLocalInput = SInput.gatherLocalInput
 Systems.drawWorld        = SPresent.drawWorld
 Systems.drawHpBars       = SPresent.drawHpBars
 Systems.drawReloadBars   = SPresent.drawReloadBars
-Systems.shakeEvent       = SEffects.shakeEvent
 Systems.initCamera       = SPresentCamera.init
 Systems.updateCamera     = SPresentCamera.update
 Systems.consumeShake     = SPresentCamera.consumeShake
@@ -46,7 +45,7 @@ Systems.getRoundWinner   = SCombat.getRoundWinner
 --   applyVelocity        — moves non-player entities (bullets)
 --   combat               — guns, bullets, damage, death, lifetime
 --   presentVisualState   — cosmetic, updates facing/walk state/animation
---   presentEffects       — audio
+--   presentEffects       — audio + camera shake events
 --   lifetime             — cleans up expired entities
 
 ---@param w World
@@ -72,7 +71,7 @@ function Systems.runSystems(w, frameInputs, localPlayerIndex, dt)
     SCombat.bulletTerrainCollision(w)
     SCombat.death(w)
     SPresent.presentVisualState(w, dt)
-    SEffects.presentEffects(w, localPlayerIndex)
+    SEffects.presentEffects(w, localPlayerIndex, dt)
     SCombat.lifetime(w, dt)
 end
 

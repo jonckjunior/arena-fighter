@@ -1,15 +1,14 @@
 local World          = require "world"
 local C              = require "components"
 local Utils          = require "utils"
+local SPresentCamera = require "systems/systems_present_camera"
 
 ---@class SystemsEffects
 local SystemsEffects = {}
 
----Plays all pending sound events relative to the local player's position,
---- then destroys the event entities.
 ---@param w World
 ---@param localPlayerIndex integer
-function SystemsEffects.presentEffects(w, localPlayerIndex)
+local function presentAudio(w, localPlayerIndex)
     local players = World.query(w, C.Name.playerIndex, C.Name.position)
     local pid     = Utils.find(players, function(id)
         return w.playerIndex[id].index == localPlayerIndex
@@ -40,13 +39,10 @@ function SystemsEffects.presentEffects(w, localPlayerIndex)
     end
 end
 
----Returns the highest-intensity shake event for the local player this frame,
---- then destroys all shake event entities.
 ---@param w World
 ---@param localPlayerIndex integer
----@return number intensity
----@return number duration
-function SystemsEffects.shakeEvent(w, localPlayerIndex)
+---@param dt number
+local function presentShake(w, localPlayerIndex, dt)
     local intensity   = 0
     local duration    = 0
     local shakeEvents = World.query(w, C.Name.shakeEvent)
@@ -59,11 +55,21 @@ function SystemsEffects.shakeEvent(w, localPlayerIndex)
         end
     end
 
+    SPresentCamera.consumeShake(intensity, duration)
+    SPresentCamera.tickShake(dt)
+
     for _, id in ipairs(shakeEvents) do
         World.destroy(w, id)
     end
+end
 
-    return intensity, duration
+---Consumes all pending presentation events for the local player.
+---@param w World
+---@param localPlayerIndex integer
+---@param dt number
+function SystemsEffects.presentEffects(w, localPlayerIndex, dt)
+    presentAudio(w, localPlayerIndex)
+    presentShake(w, localPlayerIndex, dt)
 end
 
 return SystemsEffects
