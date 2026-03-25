@@ -4,6 +4,7 @@ local SCombat            = require "systems/systems_combat"
 local SRender            = require "systems/systems_render"
 local SEffects           = require "systems/systems_effects"
 local SPresentCamera     = require "systems/systems_present_camera"
+local SPresentUi         = require "systems/systems_present_ui"
 
 ---@class Systems
 local Systems            = {}
@@ -21,6 +22,10 @@ Systems.consumeShake     = SPresentCamera.consumeShake
 Systems.tickCameraShake  = SPresentCamera.tickShake
 Systems.getCameraPosition = SPresentCamera.getPosition
 Systems.getCameraShakeOffset = SPresentCamera.getShakeOffset
+Systems.drawCursor       = SPresentUi.drawCursor
+Systems.drawNetworkDebug = SPresentUi.drawNetworkDebug
+Systems.drawScores       = SPresentUi.drawScores
+Systems.drawOverlays     = SPresentUi.drawOverlays
 Systems.isRoundOver      = SCombat.isRoundOver
 Systems.getRoundWinner   = SCombat.getRoundWinner
 

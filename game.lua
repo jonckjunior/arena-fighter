@@ -2,7 +2,6 @@ local World    = require "world"
 local Systems  = require "systems"
 local Spawners = require "spawners"
 local Lockstep = require "lockstep"
-local Utils    = require "utils"
 local C        = require "components"
 local Maps     = require "maps"
 local Assets   = require "assets"
@@ -128,61 +127,6 @@ local function tickSimulation(keysPressed)
     Systems.tickCameraShake(FIXED_DT)
 end
 
-local function drawCursor()
-    if cursor.spriteId then
-        local sprite = Assets.getImage(cursor.spriteId)
-        local sx = love.mouse.getX() / SCALE_FACTOR
-        local sy = love.mouse.getY() / SCALE_FACTOR
-        love.graphics.draw(sprite, sx, sy, 0, 1, 1,
-            Utils.round(sprite:getWidth() / 2),
-            Utils.round(sprite:getHeight() / 2))
-    end
-end
-
-local function drawNetworkDebug()
-    local stall = network.ls.stalledFrames > 0 and "  STALLED x" .. network.ls.stalledFrames or ""
-    love.graphics.print("P" .. network.networkIndex .. "  f=" .. network.ls.frame .. stall, 4, 4)
-end
-
----Draws player scores at the top of the screen.
----@param scores table  scores[playerIndex] = integer
-local function drawScores(scores)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.print("P1: " .. scores[1], 10, 10)
-    love.graphics.print("P2: " .. scores[2], love.graphics.getWidth() - 60, 10)
-end
-
-local function drawOverlays()
-    local sw = love.graphics.getWidth()
-    local sh = love.graphics.getHeight()
-    if state.gameState == "waiting" then
-        local secs = math.ceil(state.waitTimer)
-        love.graphics.setColor(1, 1, 1)
-        love.graphics.printf(secs > 0 and tostring(secs) or "Fight!", 0, sh / 2 - 8, sw, "center")
-        love.graphics.setColor(1, 1, 1)
-    elseif state.gameState == "roundOver" then
-        local text
-        if state.roundWinner ~= state.DRAW then
-            text = "Player " .. state.roundWinner .. " wins!"
-        else
-            text = "Draw!"
-        end
-        love.graphics.setColor(0, 0, 0, 0.6)
-        love.graphics.rectangle("fill", 0, 0, sw, sh)
-        love.graphics.setColor(1, 1, 1)
-        love.graphics.printf(text, 0, sh / 2 - 16, sw, "center")
-    elseif state.gameState == "matchOver" then
-        love.graphics.setColor(0, 0, 0, 0.6)
-        love.graphics.rectangle("fill", 0, 0, sw, sh)
-        love.graphics.setColor(1, 1, 1)
-        if network.USE_NETWORK and state.localWantsRestart then
-            love.graphics.printf("Waiting for other players...", 0, sh / 2 + 8, sw, "center")
-        else
-            love.graphics.printf("Press R to play again", 0, sh / 2 + 8, sw, "center")
-        end
-    end
-end
-
 ---Ticks the match over for network and local
 ---@param keysPressed table<string, boolean>
 local function tickMatchOver(keysPressed)
@@ -293,18 +237,24 @@ function Game.draw(canvas)
     --- END OF WORLD DRAW
 
     love.graphics.pop()
-    drawCursor()
+    Systems.drawCursor(cursor.spriteId)
     love.graphics.setCanvas()
 
     love.graphics.draw(canvas, 0, 0, 0, SCALE_FACTOR, SCALE_FACTOR)
 
     if network.USE_NETWORK then
-        drawNetworkDebug()
+        Systems.drawNetworkDebug(network.networkIndex, network.ls.frame, network.ls.stalledFrames)
     end
 
-    drawOverlays()
-
-    drawScores(state.scores)
+    Systems.drawOverlays(
+        state.gameState,
+        state.waitTimer,
+        state.roundWinner,
+        state.DRAW,
+        network.USE_NETWORK,
+        state.localWantsRestart
+    )
+    Systems.drawScores(state.scores)
 end
 
 local function generateStateHash(w)
