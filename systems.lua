@@ -5,6 +5,7 @@ local SPresent           = require "systems/systems_present"
 local SEffects           = require "systems/systems_effects"
 local SPresentCamera     = require "systems/systems_present_camera"
 local SPresentUi         = require "systems/systems_present_ui"
+local SCursor            = require "systems/systems_cursor"
 
 ---@class Systems
 local Systems            = {}
@@ -26,6 +27,9 @@ Systems.drawOverlays     = SPresentUi.drawOverlays
 Systems.isRoundOver      = SCombat.isRoundOver
 Systems.getRoundWinner   = SCombat.getRoundWinner
 Systems.snapshotPositions = SPresent.snapshotPositions
+Systems.initCursor       = SCursor.init
+Systems.updateCursorFromMouse = SCursor.updateFromMouse
+Systems.getCursorState   = SCursor.getState
 
 -- ── Fixed-tick pipelines ──────────────────────────────────────────────────────
 --

@@ -4,14 +4,12 @@ local Utils             = require "utils"
 ---@class SystemsPresentUi
 local SystemsPresentUi  = {}
 
----@param spriteId string|nil
-function SystemsPresentUi.drawCursor(spriteId)
-    if not spriteId then return end
+---@param cursor CursorState
+function SystemsPresentUi.drawCursor(cursor)
+    if not (cursor and cursor.spriteId) then return end
 
-    local sprite = Assets.getImage(spriteId)
-    local sx = love.mouse.getX() / SCALE_FACTOR
-    local sy = love.mouse.getY() / SCALE_FACTOR
-    love.graphics.draw(sprite, sx, sy, 0, 1, 1,
+    local sprite = Assets.getImage(cursor.spriteId)
+    love.graphics.draw(sprite, cursor.screenX, cursor.screenY, 0, 1, 1,
         Utils.round(sprite:getWidth() / 2),
         Utils.round(sprite:getHeight() / 2))
 end

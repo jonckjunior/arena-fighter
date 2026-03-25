@@ -47,19 +47,7 @@ local state    = {
     localWantsRestart = false, -- true once this client has pressed R
 }
 
--- ── Camera / Cursor ───────────────────────────────────────────────────────────
-
----@class cursor
----@field spriteId string|nil
----@field x number
----@field y number
-local cursor   = {}
-
 -- ── Init ──────────────────────────────────────────────────────────────────────
-
-local function initCursor()
-    cursor = { spriteId = "cursor_cross", x = 0, y = 0 }
-end
 
 local function initNetwork()
     network.USE_NETWORK  = false
@@ -91,17 +79,19 @@ local function startMatch()
     startRound()
 end
 
----@param keysPressed table<string, boolean>
+---@param keysPressed RawInput
 ---@return table|nil
 local function gatherFrameInputs(keysPressed)
+    local cursor = Systems.getCursorState()
     if network.USE_NETWORK then
-        local myInput = Systems.gatherLocalInput(network.networkIndex, state.world, cursor.x, cursor.y, true, keysPressed)
+        local myInput = Systems.gatherLocalInput(network.networkIndex, state.world, cursor.worldX, cursor.worldY, true,
+            keysPressed)
         return Lockstep.tick(network.ls, myInput)
     end
 
     return {
-        [1] = Systems.gatherLocalInput(1, state.world, cursor.x, cursor.y, false, keysPressed),
-        [2] = Systems.gatherLocalInput(2, state.world, cursor.x, cursor.y, false, keysPressed),
+        [1] = Systems.gatherLocalInput(1, state.world, cursor.worldX, cursor.worldY, false, keysPressed),
+        [2] = Systems.gatherLocalInput(2, state.world, cursor.worldX, cursor.worldY, false, keysPressed),
     }
 end
 
@@ -134,7 +124,7 @@ local function runFixedGameplayTick(frameInputs, localPlayerIndex, withPresentat
     end
 end
 
----@param keysPressed table<string, boolean>
+---@param keysPressed RawInput
 ---@param withPresentation boolean
 local function tickSimulation(keysPressed, withPresentation)
     local frameInputs = gatherFrameInputs(keysPressed)
@@ -145,7 +135,7 @@ local function tickSimulation(keysPressed, withPresentation)
 end
 
 ---Ticks the match over for network and local
----@param keysPressed table<string, boolean>
+---@param keysPressed RawInput
 local function tickMatchOver(keysPressed)
     if network.USE_NETWORK then
         if keysPressed["r"] then state.localWantsRestart = true end
@@ -179,6 +169,7 @@ local function tickMatchOver(keysPressed)
     end
 end
 
+---@param keysPressed RawInput
 local function tickFixed(keysPressed)
     if state.gameState == "waiting" then
         state.waitTimer = state.waitTimer - FIXED_DT
@@ -195,10 +186,10 @@ local function tickFixed(keysPressed)
     end
 end
 
-local function updateCursorFromCamera()
+---@param keysPressed RawInput
+local function updateCursorFromCamera(keysPressed)
     local cameraX, cameraY = Systems.getCameraPosition()
-    cursor.x = love.mouse.getX() / SCALE_FACTOR + cameraX
-    cursor.y = love.mouse.getY() / SCALE_FACTOR + cameraY
+    Systems.updateCursorFromMouse(keysPressed.mouseX or 0, keysPressed.mouseY or 0, cameraX, cameraY)
 end
 
 ---@return number
@@ -228,7 +219,7 @@ local function drawWorldToCanvas(canvas)
     Systems.drawReloadBars(state.world, alpha)
 
     love.graphics.pop()
-    Systems.drawCursor(cursor.spriteId)
+    Systems.drawCursor(Systems.getCursorState())
     love.graphics.setCanvas()
 end
 
@@ -254,7 +245,7 @@ function Game.load()
     Assets.load()
     initNetwork()
     Systems.initCamera()
-    initCursor()
+    Systems.initCursor("cursor_cross")
 
     if network.USE_NETWORK then
         network.ls           = Lockstep.connect(network.RELAY_HOST, network.RELAY_PORT, network.NUM_PLAYERS,
@@ -266,9 +257,11 @@ function Game.load()
     startMatch()
 end
 
+---@param dt number
+---@param keysPressed RawInput
 function Game.update(dt, keysPressed)
     -- Variable rate work: input I/O, networking, presentation camera.
-    updateCursorFromCamera()
+    updateCursorFromCamera(keysPressed)
     if network.USE_NETWORK then
         Lockstep.receive(network.ls)
     end
@@ -282,7 +275,8 @@ function Game.update(dt, keysPressed)
         ticksThisFrame = ticksThisFrame + 1
     end
 
-    Systems.updateCamera(state.world, network.networkIndex, cursor.x, cursor.y, dt)
+    local cursor = Systems.getCursorState()
+    Systems.updateCamera(state.world, network.networkIndex, cursor.worldX, cursor.worldY, dt)
 end
 
 function Game.draw(canvas)

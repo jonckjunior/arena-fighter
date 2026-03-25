@@ -15,7 +15,7 @@ end
 ---Captures raw local device input for one player before any world-aware mapping.
 ---@param playerIndex integer
 ---@param USE_NETWORK boolean
----@param keysPressed table<string, boolean>
+---@param keysPressed RawInput
 ---@return table
 function SystemsInput.captureLocalInput(playerIndex, USE_NETWORK, keysPressed)
     if playerIndex == 1 or USE_NETWORK then
@@ -87,7 +87,7 @@ end
 ---@param mx number
 ---@param my number
 ---@param USE_NETWORK boolean
----@param keysPressed table<string, boolean>
+---@param keysPressed RawInput
 ---@return table
 function SystemsInput.gatherLocalInput(playerIndex, w, mx, my, USE_NETWORK, keysPressed)
     local rawInput = SystemsInput.captureLocalInput(playerIndex, USE_NETWORK, keysPressed)

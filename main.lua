@@ -7,6 +7,21 @@ local canvas
 DEBUG        = false
 MONKEY_PATCH = false
 
+---@class RawInput
+---@field w boolean
+---@field a boolean
+---@field s boolean
+---@field d boolean
+---@field u boolean
+---@field h boolean
+---@field j boolean
+---@field k boolean
+---@field r boolean
+---@field space boolean
+---@field leftMouse boolean
+---@field mouseX number
+---@field mouseY number
+
 function love.load()
     love.graphics.setDefaultFilter("nearest", "nearest")
     love.window.setTitle("Arena Fighter")
@@ -25,6 +40,7 @@ function love.load()
     Game.load()
 end
 
+---@return RawInput
 local function grabInput()
     return {
         w         = love.keyboard.isDown("w"),
@@ -38,6 +54,8 @@ local function grabInput()
         r         = love.keyboard.isDown("r"),
         space     = love.keyboard.isDown("space"),
         leftMouse = love.mouse.isDown(1),
+        mouseX    = love.mouse.getX(),
+        mouseY    = love.mouse.getY(),
     }
 end
 
