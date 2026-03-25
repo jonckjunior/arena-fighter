@@ -28,7 +28,7 @@ end
 function SystemsCombat.gunCooldown(w)
     for _, id in ipairs(World.query(w, C.Name.gun)) do
         local gun = w.gun[id]
-        if gun.cooldown > 7 then
+        if gun.cooldown > 0 then
             gun.cooldown = gun.cooldown - 1
         end
     end
