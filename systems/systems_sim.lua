@@ -1,13 +1,11 @@
-local World      = require "world"
-local C          = require "components"
-local SInput     = require "systems/systems_input"
-local SPhysics   = require "systems/systems_physics"
-local SCombat    = require "systems/systems_combat"
+local World               = require "world"
+local C                   = require "components"
+local SPhysics            = require "systems/systems_physics"
+local SCombat             = require "systems/systems_combat"
 
 ---@class SystemsSim
-local SystemsSim = {}
+local SystemsSim          = {}
 
-SystemsSim.applyInputs    = SInput.applyInputs
 SystemsSim.isRoundOver    = SCombat.isRoundOver
 SystemsSim.getRoundWinner = SCombat.getRoundWinner
 
@@ -15,7 +13,7 @@ SystemsSim.getRoundWinner = SCombat.getRoundWinner
 ---@param frameInputs table
 ---@param dt number
 function SystemsSim.runSimulation(w, frameInputs, dt)
-    SInput.applyInputs(w, frameInputs)
+    SPhysics.applyInputs(w, frameInputs)
     SPhysics.applyGravity(w, dt)
     SPhysics.applyHorizontalMovement(w)
     SPhysics.applyJump(w)

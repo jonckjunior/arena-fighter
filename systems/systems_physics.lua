@@ -24,6 +24,43 @@ end
 
 -- ── Systems ───────────────────────────────────────────────────────────────────
 
+---Copies frame inputs into each player's input component and prepends a
+--- raw snapshot to their inputHistory ring buffer.
+--- History index 1 is always the most recent frame.
+---@param w World
+---@param frameInputs table
+function SystemsPhysics.applyInputs(w, frameInputs)
+    for _, id in ipairs(World.query(w, C.Name.playerIndex)) do
+        local pidx = w.playerIndex[id]
+        local inp  = frameInputs[pidx.index]
+        if not (inp and w.input[id]) then goto continue end
+
+        w.input[id].up       = inp.up
+        w.input[id].dn       = inp.dn
+        w.input[id].lt       = inp.lt
+        w.input[id].rt       = inp.rt
+        w.input[id].fire     = inp.fire
+        w.input[id].reload   = inp.reload
+        w.input[id].aimAngle = inp.aimAngle
+
+        local history        = w.input[id].inputHistory
+        table.insert(history, 1, {
+            up       = inp.up,
+            dn       = inp.dn,
+            lt       = inp.lt,
+            rt       = inp.rt,
+            fire     = inp.fire,
+            reload   = inp.reload,
+            aimAngle = inp.aimAngle,
+        })
+        if #history > w.input[id].historySize then
+            table.remove(history)
+        end
+
+        ::continue::
+    end
+end
+
 ---Applies gravity to all entities with gravity + velocity components.
 ---@param w World
 ---@param dt number

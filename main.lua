@@ -1,13 +1,13 @@
-SCALE_FACTOR  = 3
-VIEWPORT_W    = 480
-VIEWPORT_H    = 270
+SCALE_FACTOR       = 3
+VIEWPORT_W         = 480
+VIEWPORT_H         = 270
 
-local Game    = require "game"
-local SInput  = require "systems/systems_input"
-local Runtime = require "systems/systems_present_runtime"
+local Game         = require "game"
+local SHandleInput = require "systems/systems_handle_input"
+local Runtime      = require "systems/systems_present_runtime"
 local canvas
 local game
-DEBUG         = false
+DEBUG              = false
 
 ---@class RawInput
 ---@field w boolean
@@ -63,19 +63,7 @@ function love.update(dt)
     if not game then return end
     local rawInput = grabInput()
     local targetX, targetY = Runtime.getMouseWorldPosition(rawInput)
-    local world = game:getWorld()
-    local frameInputs = {}
-
-    if world then
-        if game:usesNetwork() then
-            local playerIndex = game:getLocalPlayerIndex()
-            frameInputs[playerIndex] = SInput.gatherLocalInput(playerIndex, world, targetX, targetY, true, rawInput)
-        else
-            for playerIndex = 1, game:getPlayerCount() do
-                frameInputs[playerIndex] = SInput.gatherLocalInput(playerIndex, world, targetX, targetY, false, rawInput)
-            end
-        end
-    end
+    local frameInputs = SHandleInput.getGameplayInput(game, rawInput, targetX, targetY)
 
     game:update(dt, frameInputs)
     Runtime.updatePresentationCursor(rawInput, targetX, targetY)
