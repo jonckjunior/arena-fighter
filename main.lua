@@ -3,6 +3,7 @@ VIEWPORT_W   = 480
 VIEWPORT_H   = 270
 
 local Game   = require "game"
+local Runtime = require "systems/systems_present_runtime"
 local canvas
 DEBUG        = false
 MONKEY_PATCH = false
@@ -31,6 +32,10 @@ function love.load()
     canvas:setFilter("nearest", "nearest")
 
     love.mouse.setVisible(false)
+
+    if not MONKEY_PATCH then
+        Runtime.init()
+    end
 
     if MONKEY_PATCH then
         Game.runHeadlessTest(10000)

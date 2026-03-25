@@ -4,7 +4,6 @@ local Spawners = require "spawners"
 local Lockstep = require "lockstep"
 local C        = require "components"
 local Maps     = require "maps"
-local Assets   = require "assets"
 local Rng      = require "rng"
 
 ---@class Game
@@ -199,9 +198,7 @@ end
 -- ── Public API ────────────────────────────────────────────────────────────────
 
 function Game.load()
-    Assets.load()
     initNetwork()
-    Systems.initPresentation()
 
     if network.USE_NETWORK then
         network.ls           = Lockstep.connect(network.RELAY_HOST, network.RELAY_PORT, network.NUM_PLAYERS,
