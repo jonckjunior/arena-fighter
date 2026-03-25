@@ -28,7 +28,7 @@ end
 function SystemsCombat.gunCooldown(w)
     for _, id in ipairs(World.query(w, C.Name.gun)) do
         local gun = w.gun[id]
-        if gun.cooldown > 0 then
+        if gun.cooldown > 5 then
             gun.cooldown = gun.cooldown - 1
         end
     end
@@ -44,10 +44,10 @@ function SystemsCombat.gunFollow(w)
         local inp     = w.input[ownerId]
         if not pos or not inp then goto continue end
 
-        local angle            = inp.aimAngle
-        local offset           = 4
-        w.position[gid].x      = pos.x + FM.cos(angle) * offset
-        w.position[gid].y      = pos.y + FM.sin(angle) * offset
+        local angle       = inp.aimAngle
+        local offset      = 4
+        w.position[gid].x = pos.x + FM.cos(angle) * offset
+        w.position[gid].y = pos.y + FM.sin(angle) * offset
         ::continue::
     end
 end
