@@ -1,6 +1,9 @@
 local C     = require "components"
 local Rng   = require "rng"
 
+local HASH_PRIME = 31
+local HASH_MODULO = 2147483647
+
 ---@class World
 ---@field nextId number
 ---@field entities table<integer, boolean>
@@ -28,6 +31,12 @@ local Rng   = require "rng"
 ---@field mapWidth  number
 ---@field mapHeight number
 local World = {}
+
+local COMPONENT_NAMES = {}
+for _, name in pairs(C.Name) do
+    COMPONENT_NAMES[#COMPONENT_NAMES + 1] = name
+end
+table.sort(COMPONENT_NAMES)
 
 ---Creates a new world with all its components.
 ---@return World
@@ -153,6 +162,144 @@ local SPECIAL_COPIERS = {
     input     = copyInput,
 }
 
+---@param src table
+---@return table
+local function copyEntities(src)
+    local dst = {}
+    for id in pairs(src) do
+        dst[id] = true
+    end
+    return dst
+end
+
+---@param src table|nil
+---@param specialName string|nil
+---@return table
+local function copyComponentTable(src, specialName)
+    local dst = {}
+    if not src then
+        return dst
+    end
+
+    local copier = SPECIAL_COPIERS[specialName] or copyFlat
+    for id, comp in pairs(src) do
+        dst[id] = copier(comp)
+    end
+    return dst
+end
+
+local function clearComponents(w)
+    for _, name in ipairs(COMPONENT_NAMES) do
+        w[name] = {}
+    end
+end
+
+---@param value any
+---@return integer
+local function keySortRank(value)
+    local valueType = type(value)
+    if valueType == "number" then return 1 end
+    if valueType == "string" then return 2 end
+    if valueType == "boolean" then return 3 end
+    if valueType == "nil" then return 4 end
+    return 5
+end
+
+---@param value any
+---@return string
+local function normalizeNumber(value)
+    return string.format("%.17g", value)
+end
+
+---@param tbl table
+---@return integer[]
+---@return table[]
+local function sortedKeys(tbl)
+    local keys = {}
+    for key in pairs(tbl) do
+        keys[#keys + 1] = key
+    end
+
+    table.sort(keys, function(a, b)
+        local rankA = keySortRank(a)
+        local rankB = keySortRank(b)
+        if rankA ~= rankB then
+            return rankA < rankB
+        end
+
+        local typeA = type(a)
+        if typeA == "number" then
+            return a < b
+        end
+        if typeA == "string" then
+            return a < b
+        end
+        if typeA == "boolean" then
+            return (a and 1 or 0) < (b and 1 or 0)
+        end
+        return tostring(a) < tostring(b)
+    end)
+
+    return keys
+end
+
+---@param hash integer
+---@param value integer
+---@return integer
+local function hashInt(hash, value)
+    return (hash * HASH_PRIME + (value % HASH_MODULO)) % HASH_MODULO
+end
+
+---@param hash integer
+---@param text string
+---@return integer
+local function hashString(hash, text)
+    hash = hashInt(hash, #text)
+    for i = 1, #text do
+        hash = hashInt(hash, string.byte(text, i))
+    end
+    return hash
+end
+
+---@param hash integer
+---@param value any
+---@return integer
+local function hashValue(hash, value)
+    local valueType = type(value)
+
+    if valueType == "nil" then
+        return hashInt(hash, 1)
+    end
+
+    if valueType == "boolean" then
+        hash = hashInt(hash, 2)
+        return hashInt(hash, value and 1 or 0)
+    end
+
+    if valueType == "number" then
+        hash = hashInt(hash, 3)
+        return hashString(hash, normalizeNumber(value))
+    end
+
+    if valueType == "string" then
+        hash = hashInt(hash, 4)
+        return hashString(hash, value)
+    end
+
+    if valueType == "table" then
+        local keys = sortedKeys(value)
+        hash = hashInt(hash, 5)
+        hash = hashInt(hash, #keys)
+        for _, key in ipairs(keys) do
+            hash = hashValue(hash, key)
+            hash = hashValue(hash, value[key])
+        end
+        return hash
+    end
+
+    error("Unsupported snapshot value type: " .. valueType)
+end
+
 ---@param w World
 ---@return table
 function World.saveState(w)
@@ -165,21 +312,40 @@ function World.saveState(w)
         mapHeight  = w.mapHeight,
     }
 
-    for id in pairs(w.entities) do
-        snap.entities[id] = true
-    end
+    snap.entities = copyEntities(w.entities)
 
-    for _, name in pairs(C.Name) do
-        local src    = w[name]
-        local dst    = {}
-        local copier = SPECIAL_COPIERS[name] or copyFlat
-        for id, comp in pairs(src) do
-            dst[id] = copier(comp)
-        end
-        snap[name] = dst
+    for _, name in ipairs(COMPONENT_NAMES) do
+        snap[name] = copyComponentTable(w[name], name)
     end
 
     return snap
+end
+
+---@param w World
+---@param snapshot table
+function World.writeState(w, snapshot)
+    w.nextId = snapshot.nextId or 1
+    w.entities = copyEntities(snapshot.entities or {})
+    w.mapAssetId = snapshot.mapAssetId
+    w.mapWidth = snapshot.mapWidth or 0
+    w.mapHeight = snapshot.mapHeight or 0
+
+    if w.rng and w.rng.setState then
+        w.rng:setState(snapshot.rngState)
+    else
+        w.rng = Rng.new(snapshot.rngState)
+    end
+
+    clearComponents(w)
+    for _, name in ipairs(COMPONENT_NAMES) do
+        w[name] = copyComponentTable(snapshot[name], name)
+    end
+end
+
+---@param snapshot table
+---@return integer
+function World.hashState(snapshot)
+    return hashValue(0, snapshot)
 end
 
 -- END SAVE STATE ------------------------

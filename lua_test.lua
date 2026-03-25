@@ -1,5 +1,6 @@
 local Game            = require "game"
 local Rng             = require "rng"
+local World           = require "world"
 
 local EXPECTED_HASH   = 2118861698
 
@@ -36,6 +37,14 @@ end
 
 local function framesForSeconds(seconds, fixedDt, extraFrames)
     return math.ceil(seconds / fixedDt) + (extraFrames or 0)
+end
+
+local function countEntries(tbl)
+    local count = 0
+    for _ in pairs(tbl) do
+        count = count + 1
+    end
+    return count
 end
 
 local function findPlayerIdByIndex(w, playerIndex)
@@ -314,11 +323,93 @@ local function assertDrawFlow()
     assert(game:getState().gameState == "waiting", "Current draw behavior should restart the round on the next tick")
 end
 
+local function assertSnapshotRoundTrip()
+    local sourceGame = Game.new()
+    sourceGame:load()
+
+    local duel = prepareControlledDuel(sourceGame)
+    local sourceWorld = sourceGame:getWorld()
+    local sourceGun = sourceWorld.gun[duel.shooterGunId]
+    local emptyMagazineInputs = playerFireInputs(-math.pi / 2, false)
+
+    advanceUntil(sourceGame, function()
+        return sourceGun.currentAmmo == 0 and sourceGun.isReloading
+    end, framesForSeconds(5, sourceGame:getFixedDt(), 0), emptyMagazineInputs)
+
+    sourceWorld.rng:random()
+    sourceWorld.rng:random()
+
+    local snapshotA = World.saveState(sourceWorld)
+    local hashA = World.hashState(snapshotA)
+
+    local destinationGame = Game.new()
+    destinationGame:load()
+    waitForPlaying(destinationGame)
+
+    local destinationWorld = destinationGame:getWorld()
+    local staleId = World.newEntity(destinationWorld)
+    destinationWorld.position[staleId] = { x = -999, y = -888, px = -999, py = -888 }
+    destinationWorld.velocity[staleId] = { dx = 111, dy = 222 }
+    destinationWorld.mapAssetId = "stale_map"
+    destinationWorld.mapWidth = 1
+    destinationWorld.mapHeight = 2
+    destinationWorld.rng:setState(7)
+
+    World.writeState(destinationWorld, snapshotA)
+
+    local snapshotB = World.saveState(destinationWorld)
+    local hashB = World.hashState(snapshotB)
+
+    assert(
+        hashA == hashB,
+        string.format("World snapshot round-trip should preserve exact state (hashA=%d, hashB=%d)", hashA, hashB)
+    )
+
+    assert(snapshotB.nextId == snapshotA.nextId, "writeState should restore nextId")
+    assert(snapshotB.rngState == snapshotA.rngState, "writeState should restore RNG state")
+    assert(snapshotB.mapAssetId == snapshotA.mapAssetId, "writeState should restore map asset id")
+    assert(snapshotB.mapWidth == snapshotA.mapWidth and snapshotB.mapHeight == snapshotA.mapHeight,
+        "writeState should restore map dimensions")
+    assert(countEntries(snapshotB.entities) == countEntries(snapshotA.entities),
+        "writeState should restore the exact entity count")
+
+    assert(destinationWorld.entities[staleId] == nil, "writeState should remove stale entities from the destination world")
+    assert(destinationWorld.position[staleId] == nil and destinationWorld.velocity[staleId] == nil,
+        "writeState should remove stale components from the destination world")
+
+    local savedGun = snapshotA.gun[duel.shooterGunId]
+    local writtenGun = snapshotB.gun[duel.shooterGunId]
+    assert(savedGun ~= nil and writtenGun ~= nil, "Round-trip should preserve the shooter's gun component")
+    assert(writtenGun.currentAmmo == savedGun.currentAmmo, "writeState should preserve gun ammo")
+    assert(writtenGun.isReloading == savedGun.isReloading, "writeState should preserve gun reload state")
+    assert(writtenGun.reloadTimer == savedGun.reloadTimer, "writeState should preserve gun reload timer")
+
+    local savedInput = snapshotA.input[duel.shooterId]
+    local writtenInput = snapshotB.input[duel.shooterId]
+    assert(savedInput ~= nil and writtenInput ~= nil, "Round-trip should preserve the shooter's input component")
+    assert(#writtenInput.inputHistory == #savedInput.inputHistory, "writeState should preserve input history length")
+    assert(#writtenInput.inputHistory > 0, "Fixture should produce non-empty input history before snapshotting")
+    assert(writtenInput.inputHistory[1].fire == savedInput.inputHistory[1].fire,
+        "writeState should preserve the latest input history entry")
+    assert(writtenInput.inputHistory[1].reload == savedInput.inputHistory[1].reload,
+        "writeState should preserve reload input history")
+    assert(writtenInput.inputHistory[1].aimAngle == savedInput.inputHistory[1].aimAngle,
+        "writeState should preserve aim angle history")
+
+    local savedAnimation = snapshotA.animation[duel.shooterGunId]
+    local writtenAnimation = snapshotB.animation[duel.shooterGunId]
+    assert(savedAnimation ~= nil and writtenAnimation ~= nil, "Round-trip should preserve gun animation state")
+    assert(#writtenAnimation.frameIds == #savedAnimation.frameIds, "writeState should preserve animation frame ids")
+    assert(writtenAnimation.frameIds[1] == savedAnimation.frameIds[1],
+        "writeState should preserve animation frame ordering")
+end
+
 local deterministicHash = assertDeterminism()
 assertLifecycle()
 assertCombatPathKnockout()
 assertReload()
 assertDrawFlow()
+assertSnapshotRoundTrip()
 
 print("lua_test.lua passed")
 print("Deterministic hash: " .. deterministicHash)
