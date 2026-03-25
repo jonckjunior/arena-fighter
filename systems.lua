@@ -45,7 +45,7 @@ Systems.getRoundWinner   = SCombat.getRoundWinner
 ---@param dt number
 function Systems.runSystems(w, frameInputs, localPlayerIndex, dt)
     SInput.applyInputs(w, frameInputs)
-    SPhysics.snapshotPositions(w)
+    SRender.snapshotPositions(w)
     SPhysics.applyGravity(w, dt)
     SPhysics.applyHorizontalMovement(w)
     SPhysics.applyJump(w)

@@ -24,15 +24,6 @@ end
 
 -- ── Systems ───────────────────────────────────────────────────────────────────
 
----Saves positions before physics modifies them (used for interpolated rendering).
----@param w World
-function SystemsPhysics.snapshotPositions(w)
-    for _, id in pairs(w.position) do
-        id.px = id.x
-        id.py = id.y
-    end
-end
-
 ---Applies gravity to all entities with gravity + velocity components.
 ---@param w World
 ---@param dt number

@@ -4,7 +4,7 @@ VIEWPORT_H   = 270
 
 local Game   = require "game"
 local canvas
-DEBUG        = true
+DEBUG        = false
 MONKEY_PATCH = false
 
 function love.load()

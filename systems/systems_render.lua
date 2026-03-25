@@ -7,6 +7,15 @@ local Assets           = require "assets"
 ---@class SystemsRender
 local SystemsRender    = {}
 
+---Saves positions before physics modifies them (used for interpolated rendering).
+---@param w World
+function SystemsRender.snapshotPositions(w)
+    for _, id in pairs(w.position) do
+        id.px = id.x
+        id.py = id.y
+    end
+end
+
 ---Writes facing direction from aim angle.
 --- Producer: input.aimAngle
 --- Consumer: facing.dir
