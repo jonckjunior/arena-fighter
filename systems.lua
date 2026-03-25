@@ -3,6 +3,7 @@ local SPhysics           = require "systems/systems_physics"
 local SCombat            = require "systems/systems_combat"
 local SRender            = require "systems/systems_render"
 local SEffects           = require "systems/systems_effects"
+local SPresentCamera     = require "systems/systems_present_camera"
 
 ---@class Systems
 local Systems            = {}
@@ -14,6 +15,12 @@ Systems.draw             = SRender.draw
 Systems.drawHpBars       = SRender.drawHpBars
 Systems.drawReloadBars   = SRender.drawReloadBars
 Systems.shakeEvent       = SEffects.shakeEvent
+Systems.initCamera       = SPresentCamera.init
+Systems.updateCamera     = SPresentCamera.update
+Systems.consumeShake     = SPresentCamera.consumeShake
+Systems.tickCameraShake  = SPresentCamera.tickShake
+Systems.getCameraPosition = SPresentCamera.getPosition
+Systems.getCameraShakeOffset = SPresentCamera.getShakeOffset
 Systems.isRoundOver      = SCombat.isRoundOver
 Systems.getRoundWinner   = SCombat.getRoundWinner
 

@@ -56,30 +56,9 @@ local state    = {
 ---@field y number
 local cursor   = {}
 
----@class camera
----@field x number
----@field y number
----@field LOOK_SPEED number
----@field LOOK_AHEAD number
----@field shake { intensity: number, timer: number, duration: number, shakeOffsetX: number, shakeOffsetY: number }
-local camera   = {}
-
 -- ── Init ──────────────────────────────────────────────────────────────────────
 
-local function initCameraAndCursor()
-    camera = {
-        x = 0,
-        y = 0,
-        LOOK_SPEED = 8,
-        LOOK_AHEAD = 0.2,
-        shake = {
-            intensity = 0,
-            duration = 0.2,
-            timer = 0,
-            shakeOffsetX = 0,
-            shakeOffsetY = 0,
-        }
-    }
+local function initCursor()
     cursor = { spriteId = "cursor_cross", x = 0, y = 0 }
 end
 
@@ -94,27 +73,6 @@ local function initNetwork()
 end
 
 -- ── Private ───────────────────────────────────────────────────────────────────
-local function updateCamera(w, targetIndex, cx, cy, dt)
-    local pid = Utils.find(
-        World.query(w, C.Name.playerIndex, C.Name.position),
-        function(id) return w.playerIndex[id].index == targetIndex end
-    )
-    if not pid then return end
-
-    local px = w.position[pid].x
-    local py = w.position[pid].y
-
-    local targetX = px + (cx - px) * camera.LOOK_AHEAD - 240
-    local targetY = py + (cy - py) * camera.LOOK_AHEAD - 135
-
-    local t = 1 - math.exp(-camera.LOOK_SPEED * dt)
-    camera.x = camera.x + (targetX - camera.x) * t
-    camera.y = camera.y + (targetY - camera.y) * t
-
-    camera.x = math.max(0, math.min(camera.x, w.mapWidth - VIEWPORT_W))
-    camera.y = math.max(0, math.min(camera.y, w.mapHeight - VIEWPORT_H))
-end
-
 local function startRound()
     state.world       = Spawners.fromMapDef(Maps.arena)
     state.gameState   = "waiting"
@@ -166,26 +124,8 @@ local function tickSimulation(keysPressed)
 
 
     local intensity, duration = Systems.shakeEvent(state.world, network.networkIndex)
-    if intensity > 0 then
-        if intensity > camera.shake.intensity then
-            camera.shake.intensity = intensity
-        end
-        if duration > camera.shake.timer then
-            camera.shake.timer = duration
-            camera.shake.duration = duration
-        end
-    end
-
-    camera.shake.timer = math.max(0, camera.shake.timer - FIXED_DT)
-    if camera.shake.timer > 0 then
-        local s = camera.shake.intensity * (camera.shake.timer / camera.shake.duration)
-        camera.shake.shakeOffsetX = love.math.random(-s, s)
-        camera.shake.shakeOffsetY = love.math.random(-s, s)
-    else
-        camera.shake.shakeOffsetX = 0
-        camera.shake.shakeOffsetY = 0
-        camera.shake.intensity = 0
-    end
+    Systems.consumeShake(intensity, duration)
+    Systems.tickCameraShake(FIXED_DT)
 end
 
 local function drawCursor()
@@ -299,7 +239,8 @@ end
 function Game.load()
     Assets.load()
     initNetwork()
-    initCameraAndCursor()
+    Systems.initCamera()
+    initCursor()
 
     if network.USE_NETWORK then
         network.ls           = Lockstep.connect(network.RELAY_HOST, network.RELAY_PORT, network.NUM_PLAYERS,
@@ -313,8 +254,9 @@ end
 
 function Game.update(dt, keysPressed)
     -- Variable rate: I/O and visuals only
-    cursor.x = love.mouse.getX() / SCALE_FACTOR + camera.x
-    cursor.y = love.mouse.getY() / SCALE_FACTOR + camera.y
+    local cameraX, cameraY = Systems.getCameraPosition()
+    cursor.x = love.mouse.getX() / SCALE_FACTOR + cameraX
+    cursor.y = love.mouse.getY() / SCALE_FACTOR + cameraY
     if network.USE_NETWORK then
         Lockstep.receive(network.ls)
     end
@@ -328,14 +270,17 @@ function Game.update(dt, keysPressed)
         ticksThisFrame = ticksThisFrame + 1
     end
 
-    updateCamera(state.world, network.networkIndex, cursor.x, cursor.y, dt)
+    Systems.updateCamera(state.world, network.networkIndex, cursor.x, cursor.y, dt)
 end
 
 function Game.draw(canvas)
+    local cameraX, cameraY = Systems.getCameraPosition()
+    local shakeX, shakeY = Systems.getCameraShakeOffset()
+
     love.graphics.setCanvas(canvas)
     love.graphics.clear(0.2, 0.2, 0.2)
     love.graphics.push()
-    love.graphics.translate(-camera.x + camera.shake.shakeOffsetX, -camera.y + camera.shake.shakeOffsetY)
+    love.graphics.translate(-cameraX + shakeX, -cameraY + shakeY)
 
     --- WORLD DRAW
     if state.world.mapAssetId then
