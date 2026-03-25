@@ -123,11 +123,24 @@ local function updateRoundState()
     end
 end
 
-local function tickSimulation(keysPressed)
+---@param frameInputs table
+---@param localPlayerIndex integer
+---@param withPresentation boolean
+local function runFixedGameplayTick(frameInputs, localPlayerIndex, withPresentation)
+    Systems.snapshotPositions(state.world)
+    Systems.runSimulation(state.world, frameInputs, FIXED_DT)
+    if withPresentation then
+        Systems.runPresentationTick(state.world, localPlayerIndex, FIXED_DT)
+    end
+end
+
+---@param keysPressed table<string, boolean>
+---@param withPresentation boolean
+local function tickSimulation(keysPressed, withPresentation)
     local frameInputs = gatherFrameInputs(keysPressed)
     if not frameInputs then return end
 
-    Systems.runSystems(state.world, frameInputs, network.networkIndex, FIXED_DT)
+    runFixedGameplayTick(frameInputs, network.networkIndex, withPresentation)
     updateRoundState()
 end
 
@@ -173,7 +186,7 @@ local function tickFixed(keysPressed)
             state.gameState = "playing"
         end
     elseif state.gameState == "playing" then
-        tickSimulation(keysPressed)
+        tickSimulation(keysPressed, true)
     elseif state.gameState == "roundOver" then
         state.waitTimer = state.waitTimer - FIXED_DT
         if state.waitTimer <= 0 then startRound() end
@@ -335,7 +348,12 @@ function Game.runHeadlessTest(frames)
     Game.load()
 
     for i = 1, frames do
-        Game.update(FIXED_DT, {})
+        local frameInputs = {
+            [1] = Systems.gatherLocalInput(1, state.world, 0, 0, false, {}),
+            [2] = Systems.gatherLocalInput(2, state.world, 0, 0, false, {}),
+        }
+        runFixedGameplayTick(frameInputs, network.networkIndex, false)
+        updateRoundState()
     end
 
     local finalHash = generateStateHash(state.world)

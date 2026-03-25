@@ -25,12 +25,12 @@ Systems.drawScores       = SPresentUi.drawScores
 Systems.drawOverlays     = SPresentUi.drawOverlays
 Systems.isRoundOver      = SCombat.isRoundOver
 Systems.getRoundWinner   = SCombat.getRoundWinner
+Systems.snapshotPositions = SPresent.snapshotPositions
 
--- ── Fixed-tick simulation loop ────────────────────────────────────────────────
+-- ── Fixed-tick pipelines ──────────────────────────────────────────────────────
 --
 -- Ordering rationale:
 --   applyInputs          — write raw input + history before anything reads it
---   snapshotPositions    — record pre-physics positions for interpolated rendering
 --   applyGravity         — accumulate vertical force before movement resolves it
 --   applyHorizontalMovement — set dx from input
 --   applyJump            — reads framesSinceGrounded (prev frame) + history → sets dy
@@ -44,15 +44,12 @@ Systems.getRoundWinner   = SCombat.getRoundWinner
 --   combat               — guns, bullets, damage, death, lifetime
 --   presentVisualState   — cosmetic, updates facing/walk state/animation
 --   presentEffects       — audio + camera shake events
---   lifetime             — cleans up expired entities
 
 ---@param w World
 ---@param frameInputs table
----@param localPlayerIndex integer
 ---@param dt number
-function Systems.runSystems(w, frameInputs, localPlayerIndex, dt)
+function Systems.runSimulation(w, frameInputs, dt)
     SInput.applyInputs(w, frameInputs)
-    SPresent.snapshotPositions(w)
     SPhysics.applyGravity(w, dt)
     SPhysics.applyHorizontalMovement(w)
     SPhysics.applyJump(w)
@@ -68,9 +65,15 @@ function Systems.runSystems(w, frameInputs, localPlayerIndex, dt)
     SCombat.bulletPlayerCollision(w)
     SCombat.bulletTerrainCollision(w)
     SCombat.death(w)
+    SCombat.lifetime(w, dt)
+end
+
+---@param w World
+---@param localPlayerIndex integer
+---@param dt number
+function Systems.runPresentationTick(w, localPlayerIndex, dt)
     SPresent.presentVisualState(w, dt)
     SEffects.presentEffects(w, localPlayerIndex, dt)
-    SCombat.lifetime(w, dt)
 end
 
 return Systems
