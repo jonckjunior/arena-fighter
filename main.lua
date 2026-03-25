@@ -3,6 +3,7 @@ VIEWPORT_W         = 480
 VIEWPORT_H         = 270
 
 local Game         = require "game"
+local LaunchConfig = require "launch_config"
 local SHandleInput = require "systems/systems_handle_input"
 local Runtime      = require "systems/systems_present_runtime"
 local canvas
@@ -36,7 +37,7 @@ function love.load()
     love.mouse.setVisible(false)
     Runtime.init()
 
-    game = Game.new()
+    game = Game.new(LaunchConfig.buildGameConfig())
     game:setHooks(Runtime.createGameHooks(game))
     game:load()
 end
