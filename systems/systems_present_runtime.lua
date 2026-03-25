@@ -21,6 +21,16 @@ function Runtime.updatePresentationInput(rawInput)
     SCursor.updateFromMouse(rawInput.mouseX or 0, rawInput.mouseY or 0, cameraX, cameraY)
 end
 
+---@param rawInput RawInput
+---@return number targetX
+---@return number targetY
+function Runtime.getPointerWorldPosition(rawInput)
+    local cameraX, cameraY = SPresentCamera.getPosition()
+    local screenX = (rawInput.mouseX or 0) / SCALE_FACTOR
+    local screenY = (rawInput.mouseY or 0) / SCALE_FACTOR
+    return screenX + cameraX, screenY + cameraY
+end
+
 ---@param game GameInstance
 ---@param rawInput RawInput
 ---@return table
@@ -28,19 +38,19 @@ function Runtime.buildFrameInputs(game, rawInput)
     local world = game:getWorld()
     if not world then return {} end
 
-    local cursor = SCursor.getState()
+    local targetX, targetY = Runtime.getPointerWorldPosition(rawInput)
     if game:usesNetwork() then
         local playerIndex = game:getLocalPlayerIndex()
         local raw = SInput.captureLocalInput(playerIndex, true, rawInput)
         return {
-            [playerIndex] = SInput.mapLocalInput(playerIndex, world, cursor.worldX, cursor.worldY, raw),
+            [playerIndex] = SInput.mapLocalInput(playerIndex, world, targetX, targetY, raw),
         }
     end
 
     local frameInputs = {}
     for playerIndex = 1, game:getPlayerCount() do
         local raw = SInput.captureLocalInput(playerIndex, false, rawInput)
-        frameInputs[playerIndex] = SInput.mapLocalInput(playerIndex, world, cursor.worldX, cursor.worldY, raw)
+        frameInputs[playerIndex] = SInput.mapLocalInput(playerIndex, world, targetX, targetY, raw)
     end
     return frameInputs
 end
