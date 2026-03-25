@@ -5,7 +5,7 @@ VIEWPORT_H   = 270
 local Game   = require "game"
 local canvas
 DEBUG        = false
-MONKEY_PATCH = false
+MONKEY_PATCH = true
 
 ---@class RawInput
 ---@field w boolean
@@ -32,6 +32,11 @@ function love.load()
 
     love.mouse.setVisible(false)
 
+    if MONKEY_PATCH then
+        Game.runHeadlessTest(10000)
+        return
+    end
+
     Game.load()
 end
 
@@ -55,11 +60,10 @@ local function grabInput()
 end
 
 function love.update(dt)
-    Game.update(dt, grabInput(), { headless = MONKEY_PATCH })
+    Game.update(dt, grabInput())
 end
 
 function love.draw()
-    if MONKEY_PATCH then return end
     Game.draw(canvas)
 end
 

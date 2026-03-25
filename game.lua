@@ -304,19 +304,6 @@ end
 function Game.runHeadlessTest(frames)
     print("Starting headless test for " .. frames .. " frames")
     local rng = Rng.new(9999)
-    local originalGather = Systems.gatherLocalInput
-
-    Systems.gatherLocalInput = function(playerIndex, w, mx, my, USE_NETWORK)
-        return {
-            up = rng:random() > 0.8,
-            dn = rng:random() > 0.8,
-            lt = rng:random() > 0.5,
-            rt = rng:random() > 0.5,
-            fire = rng:random() > 0.9,
-            aimAngle = (rng:random() - 0.5) * math.pi * 2,
-            reload = rng:random() > 0.5,
-        }
-    end
     Game.load()
 
     for i = 1, frames do
