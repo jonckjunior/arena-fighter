@@ -162,16 +162,6 @@ end
 
 ---@param self GameInstance
 ---@param frameInputs table
-local function tickSimulation(self, frameInputs)
-    local resolved = resolveFrameInputs(self, frameInputs)
-    if not resolved then return end
-
-    runFixedGameplayTick(self, resolved)
-    updateRoundState(self)
-end
-
----@param self GameInstance
----@param frameInputs table
 local function tickMatchOver(self, frameInputs)
     local localInput = (frameInputs and frameInputs[self.network.networkIndex]) or neutralInput()
     if self.network.USE_NETWORK then
@@ -217,7 +207,11 @@ local function tickFixed(self, frameInputs)
             self.state.gameState = "playing"
         end
     elseif self.state.gameState == "playing" then
-        tickSimulation(self, frameInputs)
+        local resolved = resolveFrameInputs(self, frameInputs)
+        if resolved then
+            runFixedGameplayTick(self, resolved)
+            updateRoundState(self)
+        end
     elseif self.state.gameState == "roundOver" then
         self.state.waitTimer = self.state.waitTimer - self.fixedDt
         if self.state.waitTimer <= 0 then
