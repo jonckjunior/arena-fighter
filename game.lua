@@ -331,8 +331,6 @@ function Game.runHeadlessTest(frames)
     print("Final State Hash: " .. finalHash)
     print("Number of entities with position: " .. #state.world.position)
     print("=====================================")
-
-    Systems.gatherLocalInput = originalGather
     love.event.quit()
 end
 
