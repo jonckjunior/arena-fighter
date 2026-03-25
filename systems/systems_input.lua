@@ -12,17 +12,14 @@ local function getPlayerGun(w, playerId)
     end)
 end
 
----Returns a raw input table for one player
+---Captures raw local device input for one player before any world-aware mapping.
 ---@param playerIndex integer
----@param w World
----@param mx number
----@param my number
 ---@param USE_NETWORK boolean
+---@param keysPressed table<string, boolean>
 ---@return table
-function SystemsInput.gatherLocalInput(playerIndex, w, mx, my, USE_NETWORK, keysPressed)
-    local inp
+function SystemsInput.captureLocalInput(playerIndex, USE_NETWORK, keysPressed)
     if playerIndex == 1 or USE_NETWORK then
-        inp = {
+        return {
             up       = keysPressed["w"],
             dn       = keysPressed["s"],
             lt       = keysPressed["a"],
@@ -31,17 +28,37 @@ function SystemsInput.gatherLocalInput(playerIndex, w, mx, my, USE_NETWORK, keys
             reload   = keysPressed["r"],
             aimAngle = 0,
         }
-    else
-        inp = {
-            up       = keysPressed["u"],
-            dn       = keysPressed["j"],
-            lt       = keysPressed["h"],
-            rt       = keysPressed["k"],
-            fire     = keysPressed["space"],
-            reload   = keysPressed["r"],
-            aimAngle = 0,
-        }
     end
+
+    return {
+        up       = keysPressed["u"],
+        dn       = keysPressed["j"],
+        lt       = keysPressed["h"],
+        rt       = keysPressed["k"],
+        fire     = keysPressed["space"],
+        reload   = keysPressed["r"],
+        aimAngle = 0,
+    }
+end
+
+---Maps raw local input into gameplay-ready input using world state.
+--- Currently this resolves aimAngle from cursor-to-gun position.
+---@param playerIndex integer
+---@param w World
+---@param mx number
+---@param my number
+---@param rawInput table
+---@return table
+function SystemsInput.mapLocalInput(playerIndex, w, mx, my, rawInput)
+    local inp = {
+        up = rawInput.up,
+        dn = rawInput.dn,
+        lt = rawInput.lt,
+        rt = rawInput.rt,
+        fire = rawInput.fire,
+        reload = rawInput.reload,
+        aimAngle = rawInput.aimAngle,
+    }
 
     local players = World.query(w, C.Name.playerIndex, C.Name.position, C.Name.input)
     local pid     = Utils.find(players, function(id)
@@ -60,6 +77,21 @@ function SystemsInput.gatherLocalInput(playerIndex, w, mx, my, USE_NETWORK, keys
         inp.aimAngle = w.input[pid].aimAngle
     end
     return inp
+end
+
+---Returns gameplay-ready input for one local player by composing:
+--- 1. raw device capture
+--- 2. world-aware input mapping
+---@param playerIndex integer
+---@param w World
+---@param mx number
+---@param my number
+---@param USE_NETWORK boolean
+---@param keysPressed table<string, boolean>
+---@return table
+function SystemsInput.gatherLocalInput(playerIndex, w, mx, my, USE_NETWORK, keysPressed)
+    local rawInput = SystemsInput.captureLocalInput(playerIndex, USE_NETWORK, keysPressed)
+    return SystemsInput.mapLocalInput(playerIndex, w, mx, my, rawInput)
 end
 
 ---Copies frame inputs into each player's input component and prepends a
