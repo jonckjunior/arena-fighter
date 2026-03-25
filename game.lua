@@ -79,8 +79,6 @@ local function startMatch()
     startRound()
 end
 
----@param keysPressed RawInput
----@return table|nil
 local function gatherFrameInputs(keysPressed)
     local cursor = Systems.getCursorState()
     if network.USE_NETWORK then
@@ -186,12 +184,6 @@ local function tickFixed(keysPressed)
     end
 end
 
----@param keysPressed RawInput
-local function updateCursorFromCamera(keysPressed)
-    local cameraX, cameraY = Systems.getCameraPosition()
-    Systems.updateCursorFromMouse(keysPressed.mouseX or 0, keysPressed.mouseY or 0, cameraX, cameraY)
-end
-
 ---@return number
 local function currentDrawAlpha()
     if state.gameState == "playing" then
@@ -200,52 +192,12 @@ local function currentDrawAlpha()
     return 1.0
 end
 
----@param canvas Canvas
-local function drawWorldToCanvas(canvas)
-    local cameraX, cameraY = Systems.getCameraPosition()
-    local shakeX, shakeY = Systems.getCameraShakeOffset()
-    local alpha = currentDrawAlpha()
-
-    love.graphics.setCanvas(canvas)
-    love.graphics.clear(0.2, 0.2, 0.2)
-    love.graphics.push()
-    love.graphics.translate(-cameraX + shakeX, -cameraY + shakeY)
-
-    if state.world.mapAssetId then
-        love.graphics.draw(Assets.getImage(state.world.mapAssetId), 0, 0)
-    end
-    Systems.drawWorld(state.world, alpha)
-    Systems.drawHpBars(state.world, alpha)
-    Systems.drawReloadBars(state.world, alpha)
-
-    love.graphics.pop()
-    Systems.drawCursor(Systems.getCursorState())
-    love.graphics.setCanvas()
-end
-
-local function drawScreenUi()
-    if network.USE_NETWORK then
-        Systems.drawNetworkDebug(network.networkIndex, network.ls.frame, network.ls.stalledFrames)
-    end
-
-    Systems.drawOverlays(
-        state.gameState,
-        state.waitTimer,
-        state.roundWinner,
-        state.DRAW,
-        network.USE_NETWORK,
-        state.localWantsRestart
-    )
-    Systems.drawScores(state.scores)
-end
-
 -- ── Public API ────────────────────────────────────────────────────────────────
 
 function Game.load()
     Assets.load()
     initNetwork()
-    Systems.initCamera()
-    Systems.initCursor("cursor_cross")
+    Systems.initPresentation()
 
     if network.USE_NETWORK then
         network.ls           = Lockstep.connect(network.RELAY_HOST, network.RELAY_PORT, network.NUM_PLAYERS,
@@ -261,7 +213,7 @@ end
 ---@param keysPressed RawInput
 function Game.update(dt, keysPressed)
     -- Variable rate work: input I/O, networking, presentation camera.
-    updateCursorFromCamera(keysPressed)
+    Systems.updatePresentationInput(keysPressed)
     if network.USE_NETWORK then
         Lockstep.receive(network.ls)
     end
@@ -275,14 +227,27 @@ function Game.update(dt, keysPressed)
         ticksThisFrame = ticksThisFrame + 1
     end
 
-    local cursor = Systems.getCursorState()
-    Systems.updateCamera(state.world, network.networkIndex, cursor.worldX, cursor.worldY, dt)
+    Systems.updatePresentationCamera(state.world, network.networkIndex, dt)
 end
 
 function Game.draw(canvas)
-    drawWorldToCanvas(canvas)
+    love.graphics.setCanvas(canvas)
+    love.graphics.clear(0.2, 0.2, 0.2)
+    Systems.drawWorldFrame(state.world, currentDrawAlpha())
+    love.graphics.setCanvas()
     love.graphics.draw(canvas, 0, 0, 0, SCALE_FACTOR, SCALE_FACTOR)
-    drawScreenUi()
+    Systems.drawScreenUi(
+        state.gameState,
+        state.waitTimer,
+        state.roundWinner,
+        state.DRAW,
+        network.USE_NETWORK,
+        state.localWantsRestart,
+        state.scores,
+        network.networkIndex,
+        network.USE_NETWORK and network.ls.frame or nil,
+        network.USE_NETWORK and network.ls.stalledFrames or nil
+    )
 end
 
 local function generateStateHash(w)
