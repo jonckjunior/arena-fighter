@@ -66,7 +66,6 @@ function Spawners.gun(w, ownerId, defName)
     assert(w.position[ownerId])
     w.position[id]   = C.position(w.position[ownerId].x, w.position[ownerId].y)
     w.equippedBy[id] = C.equippedBy(ownerId)
-    w.gun[id]        = C.gun(def.maxCooldown, def.damage, def.bulletSpeed, def.bulletCount, def.spread) -- In Spawners.gun(), pass the new fields:
     w.gun[id]        = C.gun(
         def.maxCooldown, def.damage, def.bulletSpeed,
         def.bulletCount, def.spread,
