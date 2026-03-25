@@ -1,20 +1,19 @@
-local SInput             = require "systems/systems_input"
-local SPhysics           = require "systems/systems_physics"
-local SCombat            = require "systems/systems_combat"
-local SPresent           = require "systems/systems_present"
-local SEffects           = require "systems/systems_effects"
-local SPresentCamera     = require "systems/systems_present_camera"
-local SPresentUi         = require "systems/systems_present_ui"
-local SCursor            = require "systems/systems_cursor"
+local SInput              = require "systems/systems_input"
+local Sim                 = require "systems/systems_sim"
+local SPresent            = require "systems/systems_present"
+local SEffects            = require "systems/systems_effects"
+local SPresentCamera      = require "systems/systems_present_camera"
+local SPresentUi          = require "systems/systems_present_ui"
+local SCursor             = require "systems/systems_cursor"
 
 ---@class Systems
-local Systems            = {}
+local Systems             = {}
 
-Systems.gatherLocalInput = SInput.gatherLocalInput
-Systems.isRoundOver      = SCombat.isRoundOver
-Systems.getRoundWinner   = SCombat.getRoundWinner
+Systems.gatherLocalInput  = SInput.gatherLocalInput
+Systems.isRoundOver       = Sim.isRoundOver
+Systems.getRoundWinner    = Sim.getRoundWinner
 Systems.snapshotPositions = SPresent.snapshotPositions
-Systems.getCursorState   = SCursor.getState
+Systems.getCursorState    = SCursor.getState
 
 function Systems.initPresentation()
     SPresentCamera.init()
@@ -97,23 +96,7 @@ end
 ---@param frameInputs table
 ---@param dt number
 function Systems.runSimulation(w, frameInputs, dt)
-    SInput.applyInputs(w, frameInputs)
-    SPhysics.applyGravity(w, dt)
-    SPhysics.applyHorizontalMovement(w)
-    SPhysics.applyJump(w)
-    SPhysics.applyWallJump(w)
-    SPhysics.applyVariableJumpCutoff(w)
-    SPhysics.playerMove(w, dt)
-    SPhysics.updateGroundedTimer(w)
-    SPhysics.applyVelocity(w, dt)
-    SCombat.gunCooldown(w)
-    SCombat.gunFollow(w)
-    SCombat.reload(w, dt)
-    SCombat.firing(w)
-    SCombat.bulletPlayerCollision(w)
-    SCombat.bulletTerrainCollision(w)
-    SCombat.death(w)
-    SCombat.lifetime(w, dt)
+    Sim.runSimulation(w, frameInputs, dt)
 end
 
 ---@param w World

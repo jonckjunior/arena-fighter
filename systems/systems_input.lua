@@ -4,6 +4,7 @@ local Utils        = require "utils"
 
 ---@class SystemsInput
 local SystemsInput = {}
+local atan2        = math.atan2 or function(y, x) return math.atan(y, x) end
 
 local function getPlayerGun(w, playerId)
     local guns = World.query(w, C.Name.equippedBy, C.Name.position, C.Name.animation)
@@ -41,8 +42,33 @@ function SystemsInput.captureLocalInput(playerIndex, USE_NETWORK, keysPressed)
     }
 end
 
+---Resolves a player's aim angle against an explicit world-space target.
+---@param playerIndex integer
+---@param w World
+---@param targetX number
+---@param targetY number
+---@param fallbackAngle number|nil
+---@return number
+function SystemsInput.resolveAimAngle(playerIndex, w, targetX, targetY, fallbackAngle)
+    local players = World.query(w, C.Name.playerIndex, C.Name.position, C.Name.input)
+    local pid     = Utils.find(players, function(id)
+        return w.playerIndex[id].index == playerIndex
+    end)
+    if not pid then return fallbackAngle or 0 end
+
+    local gunId = getPlayerGun(w, pid)
+    if not gunId then return fallbackAngle or 0 end
+
+    local px, py = w.position[gunId].x, w.position[gunId].y
+    local dx, dy = targetX - px, targetY - py
+    if dx * dx + dy * dy > 5 * 5 then
+        return atan2(dy, dx)
+    end
+    return w.input[pid].aimAngle or fallbackAngle or 0
+end
+
 ---Maps raw local input into gameplay-ready input using world state.
---- Currently this resolves aimAngle from cursor-to-gun position.
+--- The aim target is provided explicitly rather than being read from a cursor.
 ---@param playerIndex integer
 ---@param w World
 ---@param mx number
@@ -50,33 +76,15 @@ end
 ---@param rawInput table
 ---@return table
 function SystemsInput.mapLocalInput(playerIndex, w, mx, my, rawInput)
-    local inp = {
+    return {
         up = rawInput.up,
         dn = rawInput.dn,
         lt = rawInput.lt,
         rt = rawInput.rt,
         fire = rawInput.fire,
         reload = rawInput.reload,
-        aimAngle = rawInput.aimAngle,
+        aimAngle = SystemsInput.resolveAimAngle(playerIndex, w, mx, my, rawInput.aimAngle),
     }
-
-    local players = World.query(w, C.Name.playerIndex, C.Name.position, C.Name.input)
-    local pid     = Utils.find(players, function(id)
-        return w.playerIndex[id].index == playerIndex
-    end)
-    if not pid then return inp end
-
-    local gunId = getPlayerGun(w, pid)
-    if not gunId then return inp end
-
-    local px, py = w.position[gunId].x, w.position[gunId].y
-    local dx, dy = mx - px, my - py
-    if dx * dx + dy * dy > 5 * 5 then
-        inp.aimAngle = math.atan2(dy, dx)
-    else
-        inp.aimAngle = w.input[pid].aimAngle
-    end
-    return inp
 end
 
 ---Returns gameplay-ready input for one local player by composing:
