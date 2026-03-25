@@ -3,6 +3,7 @@ VIEWPORT_W    = 480
 VIEWPORT_H    = 270
 
 local Game    = require "game"
+local SInput  = require "systems/systems_input"
 local Runtime = require "systems/systems_present_runtime"
 local canvas
 local game
@@ -53,17 +54,32 @@ local function grabInput()
         r         = love.keyboard.isDown("r"),
         space     = love.keyboard.isDown("space"),
         leftMouse = love.mouse.isDown(1),
-        mouseX    = love.mouse.getX(),
-        mouseY    = love.mouse.getY(),
+        mouseX    = love.mouse.getX() / SCALE_FACTOR,
+        mouseY    = love.mouse.getY() / SCALE_FACTOR,
     }
 end
 
 function love.update(dt)
     if not game then return end
     local rawInput = grabInput()
-    Runtime.updatePresentationInput(rawInput)
-    game:update(dt, Runtime.buildFrameInputs(game, rawInput))
-    Runtime.updatePresentationCamera(game:getWorld(), game:getLocalPlayerIndex(), dt)
+    local targetX, targetY = Runtime.getMouseWorldPosition(rawInput)
+    local world = game:getWorld()
+    local frameInputs = {}
+
+    if world then
+        if game:usesNetwork() then
+            local playerIndex = game:getLocalPlayerIndex()
+            frameInputs[playerIndex] = SInput.gatherLocalInput(playerIndex, world, targetX, targetY, true, rawInput)
+        else
+            for playerIndex = 1, game:getPlayerCount() do
+                frameInputs[playerIndex] = SInput.gatherLocalInput(playerIndex, world, targetX, targetY, false, rawInput)
+            end
+        end
+    end
+
+    game:update(dt, frameInputs)
+    Runtime.updatePresentationCursor(rawInput, targetX, targetY)
+    Runtime.updatePresentationCamera(game:getWorld(), game:getLocalPlayerIndex(), targetX, targetY, dt)
 end
 
 function love.draw()

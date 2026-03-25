@@ -1,5 +1,4 @@
 local Assets         = require "assets"
-local SInput         = require "systems/systems_input"
 local SEffects       = require "systems/systems_effects"
 local SPresentCamera = require "systems/systems_present_camera"
 local SPresentDraw   = require "systems/systems_present_draw"
@@ -17,32 +16,18 @@ function Runtime.init()
 end
 
 ---@param rawInput RawInput
-function Runtime.updatePresentationInput(rawInput)
+---@return number
+---@return number
+function Runtime.getMouseWorldPosition(rawInput)
     local cameraX, cameraY = SPresentCamera.getPosition()
-    SCursor.updateFromMouse(rawInput.mouseX or 0, rawInput.mouseY or 0, cameraX, cameraY)
+    return (rawInput.mouseX or 0) + cameraX, (rawInput.mouseY or 0) + cameraY
 end
 
----@param game GameInstance
 ---@param rawInput RawInput
----@return table
-function Runtime.buildFrameInputs(game, rawInput)
-    local world = game:getWorld()
-    if not world then return {} end
-
-    local cursor = SCursor.getState()
-    local targetX, targetY = cursor.worldX, cursor.worldY
-    if game:usesNetwork() then
-        local playerIndex = game:getLocalPlayerIndex()
-        return {
-            [playerIndex] = SInput.gatherLocalInput(playerIndex, world, targetX, targetY, true, rawInput),
-        }
-    end
-
-    local frameInputs = {}
-    for playerIndex = 1, game:getPlayerCount() do
-        frameInputs[playerIndex] = SInput.gatherLocalInput(playerIndex, world, targetX, targetY, false, rawInput)
-    end
-    return frameInputs
+---@param worldX number
+---@param worldY number
+function Runtime.updatePresentationCursor(rawInput, worldX, worldY)
+    SCursor.update(rawInput.mouseX or 0, rawInput.mouseY or 0, worldX, worldY)
 end
 
 ---@param game GameInstance
@@ -64,10 +49,11 @@ end
 
 ---@param w World
 ---@param localPlayerIndex integer
+---@param targetX number
+---@param targetY number
 ---@param dt number
-function Runtime.updatePresentationCamera(w, localPlayerIndex, dt)
-    local cursor = SCursor.getState()
-    SPresentCamera.update(w, localPlayerIndex, cursor.worldX, cursor.worldY, dt)
+function Runtime.updatePresentationCamera(w, localPlayerIndex, targetX, targetY, dt)
+    SPresentCamera.update(w, localPlayerIndex, targetX, targetY, dt)
 end
 
 ---@param w World

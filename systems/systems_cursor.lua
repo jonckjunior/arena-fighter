@@ -28,15 +28,15 @@ function SystemsCursor.init(spriteId)
     }
 end
 
----@param mouseX number
----@param mouseY number
----@param cameraX number
----@param cameraY number
-function SystemsCursor.updateFromMouse(mouseX, mouseY, cameraX, cameraY)
-    state.screenX = mouseX / SCALE_FACTOR
-    state.screenY = mouseY / SCALE_FACTOR
-    state.worldX = state.screenX + cameraX
-    state.worldY = state.screenY + cameraY
+---@param screenX number
+---@param screenY number
+---@param worldX number
+---@param worldY number
+function SystemsCursor.update(screenX, screenY, worldX, worldY)
+    state.screenX = screenX
+    state.screenY = screenY
+    state.worldX = worldX
+    state.worldY = worldY
 end
 
 ---@return CursorState
