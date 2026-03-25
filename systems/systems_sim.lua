@@ -13,7 +13,7 @@ SystemsSim.getRoundWinner = SCombat.getRoundWinner
 ---@param frameInputs table
 ---@param dt number
 function SystemsSim.runSimulation(w, frameInputs, dt)
-    SPhysics.applyInputs(w, frameInputs)
+    SPhysics.commitFrameInputs(w, frameInputs)
     SPhysics.applyGravity(w, dt)
     SPhysics.applyHorizontalMovement(w)
     SPhysics.applyJump(w)

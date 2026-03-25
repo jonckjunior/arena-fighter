@@ -29,7 +29,7 @@ end
 --- History index 1 is always the most recent frame.
 ---@param w World
 ---@param frameInputs table
-function SystemsPhysics.applyInputs(w, frameInputs)
+function SystemsPhysics.commitFrameInputs(w, frameInputs)
     for _, id in ipairs(World.query(w, C.Name.playerIndex)) do
         local pidx = w.playerIndex[id]
         local inp  = frameInputs[pidx.index]
