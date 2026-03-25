@@ -1,8 +1,9 @@
 local Assets         = require "assets"
 local SInput         = require "systems/systems_input"
-local SPresent       = require "systems/systems_present"
 local SEffects       = require "systems/systems_effects"
 local SPresentCamera = require "systems/systems_present_camera"
+local SPresentDraw   = require "systems/systems_present_draw"
+local SPresentPose   = require "systems/systems_present_pose"
 local SPresentUi     = require "systems/systems_present_ui"
 local SCursor        = require "systems/systems_cursor"
 
@@ -60,10 +61,13 @@ end
 function Runtime.createGameHooks(game)
     return {
         beforeSimulationTick = function(w)
-            SPresent.snapshotPositions(w)
+            SPresentPose.snapshotPositions(w)
         end,
         afterSimulationTick = function(w, dt)
-            SPresent.presentVisualState(w, dt)
+            SPresentPose.updateFacing(w)
+            SPresentPose.updateWalkAnimation(w)
+            SPresentPose.updateGunPresentation(w)
+            SPresentPose.animation(w, dt)
             SEffects.presentEffects(w, game:getLocalPlayerIndex(), dt)
         end,
     }
@@ -81,7 +85,10 @@ end
 ---@param localPlayerIndex integer
 ---@param dt number
 function Runtime.runPresentationTick(w, localPlayerIndex, dt)
-    SPresent.presentVisualState(w, dt)
+    SPresentPose.updateFacing(w)
+    SPresentPose.updateWalkAnimation(w)
+    SPresentPose.updateGunPresentation(w)
+    SPresentPose.animation(w, dt)
     SEffects.presentEffects(w, localPlayerIndex, dt)
 end
 
@@ -97,9 +104,9 @@ function Runtime.drawWorldFrame(w, alpha)
     if w.mapAssetId then
         love.graphics.draw(Assets.getImage(w.mapAssetId), 0, 0)
     end
-    SPresent.drawWorld(w, alpha)
-    SPresent.drawHpBars(w, alpha)
-    SPresent.drawReloadBars(w, alpha)
+    SPresentDraw.drawWorld(w, alpha)
+    SPresentDraw.drawHpBars(w, alpha)
+    SPresentDraw.drawReloadBars(w, alpha)
 
     love.graphics.pop()
     SPresentUi.drawCursor(SCursor.getState())
