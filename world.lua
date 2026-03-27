@@ -9,7 +9,7 @@ local HASH_MODULO     = 2147483647
 ---@field entities table<integer, boolean>
 ---@field position table<integer, {x: number, y: number, px: number, py: number}>
 ---@field velocity table<integer, {dx: number, dy: number}>
----@field animation table<integer, {frameIds: string[], current: number, timer: number, duration: number, isPlaying: boolean, angle: number | nil, flipY: integer | nil}>
+---@field animation table<integer, {frameIds: string[], current: number, timer: number, duration: number, isPlaying: boolean, angle: number | nil, flipY: integer | nil, isPlayerOnAir: boolean}>
 ---@field input table<integer, {up: boolean, dn: boolean, lt: boolean, rt: boolean, fire: boolean, reload: boolean, aimAngle: number, inputHistory: table[], historySize: integer}>
 ---@field speed table<integer, {value: number}>
 ---@field facing table<integer, {dir: number}>
