@@ -66,7 +66,7 @@ function love.update(dt)
     local targetX, targetY = Runtime.getMouseWorldPosition(rawInput)
     local frameInputs = SHandleInput.getGameplayInput(game, rawInput, targetX, targetY)
 
-    game:update(dt, frameInputs, false)
+    game:update(dt, frameInputs, true)
     Runtime.present(game, rawInput, dt)
 end
 

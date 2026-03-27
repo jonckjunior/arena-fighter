@@ -311,9 +311,8 @@ end
 
 ---@param dt number
 ---@param frameInputs FrameInputs
----@param discardEvents boolean
-function Game:update(dt, frameInputs, discardEvents)
-    discardEvents = discardEvents or true
+---@param keepEvents boolean
+function Game:update(dt, frameInputs, keepEvents)
     if self.network.USE_NETWORK then
         getLockstep().receive(self.network.ls)
     end
@@ -327,7 +326,7 @@ function Game:update(dt, frameInputs, discardEvents)
         ticksThisFrame = ticksThisFrame + 1
     end
 
-    if discardEvents then
+    if not keepEvents then
         World.discardPresentationEvents(self.state.world)
     end
 end
