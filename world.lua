@@ -16,7 +16,7 @@ local HASH_MODULO     = 2147483647
 ---@field solid table<integer, {}>
 ---@field collider table<integer, {shape: "circle"|"rect", radius: number|nil, w: number|nil, h: number|nil, ox: integer, oy: integer}>
 ---@field gun table<integer, {cooldown: number, maxCooldown: number, damage: number, bulletSpeed: number, spread: number, bulletCount: integer, isReloading: boolean, reloadTime: number, reloadTimer: number, maxAmmo: integer, currentAmmo: integer, muzzleOffsetX: integer, muzzleOffsetY: integer}>
----@field bullet table<integer, {ownerId: integer, damage: number, graceFrames: integer}>
+---@field bullet table<integer, {ownerId: integer, damage: number, graceFrames: integer, selfDamageGraceFrames: integer}>
 ---@field lifetime table<integer, {ttl: number}>
 ---@field equippedBy table<integer, {ownerId: integer}>
 ---@field drawLayer table<integer, {layer: integer}>

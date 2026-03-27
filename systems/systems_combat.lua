@@ -102,7 +102,8 @@ function SystemsCombat.bulletPlayerCollision(w)
         local hits   = {}
 
         for _, pid in ipairs(players) do
-            if pid == bullet.ownerId then goto continuePlayer end
+            if pid == bullet.ownerId and bullet.selfDamageGraceFrames > 0 then goto continuePlayer end
+            bullet.selfDamageGraceFrames = math.max(bullet.selfDamageGraceFrames - 1, 0)
             local ppos = w.position[pid]
             local pcol = w.collider[pid]
             if circleHitsRect(bpos, bcol, ppos, pcol) then
