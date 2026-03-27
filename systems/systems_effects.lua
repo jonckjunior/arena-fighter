@@ -7,8 +7,9 @@ local SPresentCamera = require "systems/systems_present_camera"
 local SystemsEffects = {}
 
 ---@param w World
+---@param sounds {soundPath: string, x: number, y: number, playerIndex: integer|nil}[]
 ---@param localPlayerIndex integer
-local function presentAudio(w, localPlayerIndex)
+local function presentAudio(w, sounds, localPlayerIndex)
     local players = World.query(w, C.Name.playerIndex, C.Name.position)
     local pid     = Utils.find(players, function(id)
         return w.playerIndex[id].index == localPlayerIndex
@@ -18,9 +19,7 @@ local function presentAudio(w, localPlayerIndex)
         love.audio.setPosition(w.position[pid].x, w.position[pid].y, 0)
     end
 
-    local toDelete = {}
-    for _, id in ipairs(World.query(w, C.Name.soundEvent)) do
-        local ev  = w.soundEvent[id]
+    for _, ev in ipairs(sounds) do
         local src = love.audio.newSource(ev.soundPath, "static")
         if ev.playerIndex == localPlayerIndex then
             src:setRelative(true)
@@ -32,23 +31,17 @@ local function presentAudio(w, localPlayerIndex)
         love.audio.setDistanceModel("linearclamped")
         src:setAttenuationDistances(100, 500)
         src:play()
-        toDelete[#toDelete + 1] = id
-    end
-    for _, id in ipairs(toDelete) do
-        World.destroy(w, id)
     end
 end
 
----@param w World
+---@param shakes {intensity: number, duration: number, playerIndex: integer|nil}[]
 ---@param localPlayerIndex integer
 ---@param dt number
-local function presentShake(w, localPlayerIndex, dt)
+local function presentShake(shakes, localPlayerIndex, dt)
     local intensity   = 0
     local duration    = 0
-    local shakeEvents = World.query(w, C.Name.shakeEvent)
 
-    for _, id in ipairs(shakeEvents) do
-        local ev = w.shakeEvent[id]
+    for _, ev in ipairs(shakes) do
         if ev.playerIndex == localPlayerIndex and ev.intensity > intensity then
             intensity = ev.intensity
             duration  = ev.duration
@@ -57,19 +50,17 @@ local function presentShake(w, localPlayerIndex, dt)
 
     SPresentCamera.consumeShake(intensity, duration)
     SPresentCamera.tickShake(dt)
-
-    for _, id in ipairs(shakeEvents) do
-        World.destroy(w, id)
-    end
 end
 
----Consumes all pending presentation events for the local player.
+---Consumes all pending presentation effects for the local player.
 ---@param w World
 ---@param localPlayerIndex integer
 ---@param dt number
 function SystemsEffects.presentEffects(w, localPlayerIndex, dt)
-    presentAudio(w, localPlayerIndex)
-    presentShake(w, localPlayerIndex, dt)
+    local effects = w.presentationEffects or { sounds = {}, shakes = {} }
+    presentAudio(w, effects.sounds or {}, localPlayerIndex)
+    presentShake(effects.shakes or {}, localPlayerIndex, dt)
+    w.presentationEffects = { sounds = {}, shakes = {} }
 end
 
 return SystemsEffects

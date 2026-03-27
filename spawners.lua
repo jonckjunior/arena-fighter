@@ -105,15 +105,24 @@ function Spawners.bullet(w, ownerId, x, y, vx, vy, damage)
 end
 
 function Spawners.soundEvent(w, soundPath, x, y, playerIndex)
-    local id         = World.newEntity(w)
-    w.soundEvent[id] = C.soundEvent(soundPath, x, y, playerIndex)
-    return id
+    local sounds = w.presentationEffects and w.presentationEffects.sounds
+    if not sounds then return end
+    sounds[#sounds + 1] = {
+        soundPath = soundPath,
+        x = x,
+        y = y,
+        playerIndex = playerIndex,
+    }
 end
 
 function Spawners.shakeEvent(w, intensity, duration, playerIndex)
-    local id         = World.newEntity(w)
-    w.shakeEvent[id] = C.shakeEvent(intensity, duration, playerIndex)
-    return id
+    local shakes = w.presentationEffects and w.presentationEffects.shakes
+    if not shakes then return end
+    shakes[#shakes + 1] = {
+        intensity = intensity,
+        duration = duration,
+        playerIndex = playerIndex,
+    }
 end
 
 function Spawners.wall(w, x, y)

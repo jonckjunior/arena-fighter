@@ -1,5 +1,6 @@
 local Game            = require "game"
 local Rng             = require "rng"
+local Sim             = require "systems/systems_sim"
 local World           = require "world"
 
 local EXPECTED_HASH   = 2118861698
@@ -373,7 +374,8 @@ local function assertSnapshotRoundTrip()
     assert(countEntries(snapshotB.entities) == countEntries(snapshotA.entities),
         "writeState should restore the exact entity count")
 
-    assert(destinationWorld.entities[staleId] == nil, "writeState should remove stale entities from the destination world")
+    assert(destinationWorld.entities[staleId] == nil,
+        "writeState should remove stale entities from the destination world")
     assert(destinationWorld.position[staleId] == nil and destinationWorld.velocity[staleId] == nil,
         "writeState should remove stale components from the destination world")
 
@@ -402,6 +404,38 @@ local function assertSnapshotRoundTrip()
     assert(#writtenAnimation.frameIds == #savedAnimation.frameIds, "writeState should preserve animation frame ids")
     assert(writtenAnimation.frameIds[1] == savedAnimation.frameIds[1],
         "writeState should preserve animation frame ordering")
+end
+
+local function assertPresentationEffectsAreTransient()
+    local world = World.new()
+    world.presentationEffects.sounds[#world.presentationEffects.sounds + 1] = {
+        soundPath = "Assets/Sounds/gunshot.ogg",
+        x = 10,
+        y = 20,
+        playerIndex = 1,
+    }
+    world.presentationEffects.shakes[#world.presentationEffects.shakes + 1] = {
+        intensity = 2,
+        duration = 0.1,
+        playerIndex = 1,
+    }
+
+    local snapshot = World.saveState(world)
+    assert(snapshot.presentationEffects == nil, "World.saveState should not serialize presentation effects")
+
+    World.discardPresentationEvents(world)
+    assert(#world.presentationEffects.sounds == 0, "discardPresentationEvents should clear queued sounds")
+    assert(#world.presentationEffects.shakes == 0, "discardPresentationEvents should clear queued shakes")
+
+    world.presentationEffects.sounds[#world.presentationEffects.sounds + 1] = {
+        soundPath = "Assets/Sounds/gunshot.ogg",
+        x = 30,
+        y = 40,
+        playerIndex = 1,
+    }
+    World.writeState(world, snapshot)
+    assert(#world.presentationEffects.sounds == 0, "writeState should reset transient sounds")
+    assert(#world.presentationEffects.shakes == 0, "writeState should reset transient shakes")
 end
 
 local function assertRollback()
@@ -472,13 +506,17 @@ local function assertRollback()
 
     assert(game:getWorld().gun[duel.shooterGunId].isReloading == rolledBackSnapshot.gun[duel.shooterGunId].isReloading,
         "Rollback should restore gun reload state")
-    assert(game:getWorld().input[duel.shooterId].inputHistory[1].fire == rolledBackSnapshot.input[duel.shooterId].inputHistory[1].fire,
+    assert(
+        game:getWorld().input[duel.shooterId].inputHistory[1].fire ==
+        rolledBackSnapshot.input[duel.shooterId].inputHistory[1].fire,
         "Rollback should restore input history")
-    assert(not game:canRollbackToFrame(targetFrame + 1), "Rollback should discard future history beyond the restored frame")
+    assert(not game:canRollbackToFrame(targetFrame + 1),
+        "Rollback should discard future history beyond the restored frame")
 
     advanceFrames(game, rollbackInputs, 7)
     assert(not game:canRollbackToFrame(0), "History should evict the oldest frame once it exceeds the rollback cap")
-    assert(game:canRollbackToFrame(game:getSimulationFrame() - 1), "Recent frames should remain rollbackable after pruning")
+    assert(game:canRollbackToFrame(game:getSimulationFrame() - 1),
+        "Recent frames should remain rollbackable after pruning")
 
     knockOutPlayer(game, 2)
     assert(game:getState().gameState == "roundOver", "Fixture should enter roundOver after a knockout")
@@ -496,6 +534,7 @@ assertCombatPathKnockout()
 assertReload()
 assertDrawFlow()
 assertSnapshotRoundTrip()
+assertPresentationEffectsAreTransient()
 assertRollback()
 
 print("lua_test.lua passed")

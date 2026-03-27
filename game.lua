@@ -4,10 +4,6 @@ local Spawners = require "spawners"
 local Maps     = require "maps"
 local C        = require "components"
 
----@class GameHooks
----@field beforeSimulationTick fun(w: World)|nil
----@field afterSimulationTick fun(w: World, dt: number)|nil
-
 ---@class GameConfig
 ---@field useNetwork boolean|nil
 ---@field relayHost string|nil
@@ -18,7 +14,6 @@ local C        = require "components"
 ---@field roundsToWin integer|nil
 ---@field fixedDt number|nil
 ---@field rollbackWindowSize integer|nil
----@field hooks GameHooks|nil
 
 ---@class GameNetworkState
 ---@field USE_NETWORK boolean
@@ -48,7 +43,6 @@ local C        = require "components"
 ---@class GameInstance
 ---@field fixedDt number
 ---@field rollbackWindowSize integer
----@field hooks GameHooks
 ---@field network GameNetworkState
 ---@field state GameState
 local Game     = {}
@@ -176,17 +170,7 @@ end
 local function runFixedGameplayTick(self, frameInputs)
     saveRollbackSnapshot(self)
 
-    if self.hooks.beforeSimulationTick then
-        self.hooks.beforeSimulationTick(self.state.world)
-    end
-
     Sim.runSimulation(self.state.world, frameInputs, self.fixedDt)
-
-    if self.hooks.afterSimulationTick then
-        self.hooks.afterSimulationTick(self.state.world, self.fixedDt)
-    elseif Sim.discardPresentationEvents then
-        Sim.discardPresentationEvents(self.state.world)
-    end
 
     self.state.simulationFrame = self.state.simulationFrame + 1
 end
@@ -304,15 +288,9 @@ function Game.new(config)
     return setmetatable({
         fixedDt = config.fixedDt or Game.FIXED_DT,
         rollbackWindowSize = config.rollbackWindowSize or 120,
-        hooks = config.hooks or {},
         network = newNetworkState(config),
         state = newGameState(config),
     }, Game)
-end
-
----@param hooks GameHooks|nil
-function Game:setHooks(hooks)
-    self.hooks = hooks or {}
 end
 
 function Game:load()
@@ -333,7 +311,9 @@ end
 
 ---@param dt number
 ---@param frameInputs FrameInputs
-function Game:update(dt, frameInputs)
+---@param discardEvents boolean
+function Game:update(dt, frameInputs, discardEvents)
+    discardEvents = discardEvents or true
     if self.network.USE_NETWORK then
         getLockstep().receive(self.network.ls)
     end
@@ -345,6 +325,10 @@ function Game:update(dt, frameInputs)
         tickFixed(self, frameInputs)
         self.state.accumulator = self.state.accumulator - self.fixedDt
         ticksThisFrame = ticksThisFrame + 1
+    end
+
+    if discardEvents then
+        World.discardPresentationEvents(self.state.world)
     end
 end
 

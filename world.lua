@@ -1,8 +1,8 @@
-local C     = require "components"
-local Rng   = require "rng"
+local C               = require "components"
+local Rng             = require "rng"
 
-local HASH_PRIME = 31
-local HASH_MODULO = 2147483647
+local HASH_PRIME      = 31
+local HASH_MODULO     = 2147483647
 
 ---@class World
 ---@field nextId number
@@ -22,15 +22,14 @@ local HASH_MODULO = 2147483647
 ---@field drawLayer table<integer, {layer: integer}>
 ---@field playerIndex table<integer, {index: integer}>
 ---@field hp table<integer, {current: number, max: number}>
----@field soundEvent table<integer, {soundPath: string, x: number, y: number, playerIndex: integer}>
----@field shakeEvent table<integer, {intensity: number, duration: number, playerIndex: integer}>
 ---@field gravity table<integer, {g: number}>
 ---@field grounded table<integer, {value: boolean, wallDir: integer, framesSinceGrounded: integer, framesSinceJump: integer, framesSinceWall: integer, lastWallDir: integer}>
+---@field presentationEffects {sounds: {soundPath: string, x: number, y: number, playerIndex: integer|nil}[], shakes: {intensity: number, duration: number, playerIndex: integer|nil}[]}
 ---@field rng Rng
 ---@field mapAssetId string|nil
 ---@field mapWidth  number
 ---@field mapHeight number
-local World = {}
+local World           = {}
 
 local COMPONENT_NAMES = {}
 for _, name in pairs(C.Name) do
@@ -42,12 +41,13 @@ table.sort(COMPONENT_NAMES)
 ---@return World
 function World.new()
     local w = {
-        nextId     = 1,
-        entities   = {},
-        rng        = Rng.new(12345),
-        mapAssetId = nil,
-        mapWidth   = 0,
-        mapHeight  = 0,
+        nextId              = 1,
+        entities            = {},
+        presentationEffects = { sounds = {}, shakes = {} },
+        rng                 = Rng.new(12345),
+        mapAssetId          = nil,
+        mapWidth            = 0,
+        mapHeight           = 0,
     }
     for _, name in pairs(C.Name) do
         -- LuaLS thinks that C.Name could be rng so it complains, so I'm disabling it.
@@ -340,6 +340,7 @@ function World.writeState(w, snapshot)
     for _, name in ipairs(COMPONENT_NAMES) do
         w[name] = copyComponentTable(snapshot[name], name)
     end
+    w.presentationEffects = { sounds = {}, shakes = {} }
 end
 
 ---@param snapshot table
@@ -349,5 +350,10 @@ function World.hashState(snapshot)
 end
 
 -- END SAVE STATE ------------------------
+
+---@param w World
+function World.discardPresentationEvents(w)
+    w.presentationEffects = { sounds = {}, shakes = {} }
+end
 
 return World

@@ -21,34 +21,23 @@ function Runtime.getMouseWorldPosition(rawInput)
     return (rawInput.mouseX or 0) + cameraX, (rawInput.mouseY or 0) + cameraY
 end
 
----@param rawInput RawInput
----@param worldX number
----@param worldY number
-function Runtime.updatePresentationCursor(rawInput, worldX, worldY)
-    SCursor.update(rawInput.mouseX or 0, rawInput.mouseY or 0, worldX, worldY)
-end
-
 ---@param game GameInstance
----@return GameHooks
-function Runtime.createGameHooks(game)
-    return {
-        afterSimulationTick = function(w, dt)
-            SPresentPose.updateFacing(w)
-            SPresentPose.updateWalkAnimation(w)
-            SPresentPose.updateGunPresentation(w)
-            SPresentPose.animation(w, dt)
-            SEffects.presentEffects(w, game:getLocalPlayerIndex(), dt)
-        end,
-    }
-end
-
----@param w World
----@param localPlayerIndex integer
----@param targetX number
----@param targetY number
+---@param rawInput RawInput
 ---@param dt number
-function Runtime.updatePresentationCamera(w, localPlayerIndex, targetX, targetY, dt)
+function Runtime.present(game, rawInput, dt)
+    local w = game:getWorld()
+    if not w then return end
+
+    local localPlayerIndex = game:getLocalPlayerIndex()
+    local targetX, targetY = Runtime.getMouseWorldPosition(rawInput)
+
+    SCursor.update(rawInput.mouseX or 0, rawInput.mouseY or 0, targetX, targetY)
     SPresentCamera.update(w, localPlayerIndex, targetX, targetY, dt)
+    SPresentPose.updateFacing(w)
+    SPresentPose.updateWalkAnimation(w)
+    SPresentPose.updateGunPresentation(w)
+    SPresentPose.animation(w, dt)
+    SEffects.presentEffects(w, localPlayerIndex, dt)
 end
 
 ---@param w World

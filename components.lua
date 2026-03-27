@@ -19,8 +19,6 @@ local C = {}
 ---@field drawLayer   string
 ---@field playerIndex string
 ---@field hp          string
----@field soundEvent  string
----@field shakeEvent  string
 ---@field gravity     string
 ---@field grounded    string
 ---@field jumpTimers  string
@@ -41,8 +39,6 @@ C.Name = {
     drawLayer   = "drawLayer",
     playerIndex = "playerIndex",
     hp          = "hp",
-    soundEvent  = "soundEvent",
-    shakeEvent  = "shakeEvent",
     gravity     = "gravity",
     grounded    = "grounded",
 }
@@ -155,14 +151,6 @@ end
 
 function C.hp(max)
     return { current = max, max = max }
-end
-
-function C.soundEvent(soundPath, x, y, playerIndex)
-    return { soundPath = soundPath, x = x, y = y, playerIndex = playerIndex }
-end
-
-function C.shakeEvent(intensity, duration, playerIndex)
-    return { intensity = intensity, duration = duration, playerIndex = playerIndex }
 end
 
 function C.solid()

@@ -38,7 +38,6 @@ function love.load()
     Runtime.init()
 
     game = Game.new(LaunchConfig.buildGameConfig())
-    game:setHooks(Runtime.createGameHooks(game))
     game:load()
 end
 
@@ -67,9 +66,8 @@ function love.update(dt)
     local targetX, targetY = Runtime.getMouseWorldPosition(rawInput)
     local frameInputs = SHandleInput.getGameplayInput(game, rawInput, targetX, targetY)
 
-    game:update(dt, frameInputs)
-    Runtime.updatePresentationCursor(rawInput, targetX, targetY)
-    Runtime.updatePresentationCamera(game:getWorld(), game:getLocalPlayerIndex(), targetX, targetY, dt)
+    game:update(dt, frameInputs, false)
+    Runtime.present(game, rawInput, dt)
 end
 
 function love.draw()

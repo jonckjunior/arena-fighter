@@ -1,5 +1,3 @@
-local World               = require "world"
-local C                   = require "components"
 local SPhysics            = require "systems/systems_physics"
 local SCombat             = require "systems/systems_combat"
 
@@ -31,16 +29,6 @@ function SystemsSim.runSimulation(w, frameInputs, dt)
     SCombat.bulletTerrainCollision(w)
     SCombat.death(w)
     SCombat.lifetime(w, dt)
-end
-
----@param w World
-function SystemsSim.discardPresentationEvents(w)
-    for _, id in ipairs(World.query(w, C.Name.soundEvent)) do
-        World.destroy(w, id)
-    end
-    for _, id in ipairs(World.query(w, C.Name.shakeEvent)) do
-        World.destroy(w, id)
-    end
 end
 
 return SystemsSim
