@@ -11,8 +11,6 @@ local Runtime        = {}
 
 function Runtime.init()
     Assets.load()
-    SPresentCamera.init()
-    SCursor.init("cursor_cross")
 end
 
 ---@param rawInput RawInput
@@ -34,9 +32,6 @@ end
 ---@return GameHooks
 function Runtime.createGameHooks(game)
     return {
-        beforeSimulationTick = function(w)
-            SPresentPose.snapshotPositions(w)
-        end,
         afterSimulationTick = function(w, dt)
             SPresentPose.updateFacing(w)
             SPresentPose.updateWalkAnimation(w)

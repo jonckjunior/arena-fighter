@@ -29,20 +29,6 @@ local state                = {
     shakeOffsetY = 0,
 }
 
-function SystemsPresentCamera.init()
-    state = {
-        x = 0,
-        y = 0,
-        lookSpeed = 8,
-        lookAhead = 0.2,
-        shakeIntensity = 0,
-        shakeTimer = 0,
-        shakeDuration = 0.2,
-        shakeOffsetX = 0,
-        shakeOffsetY = 0,
-    }
-end
-
 ---@param intensity number
 ---@param duration number
 function SystemsPresentCamera.consumeShake(intensity, duration)

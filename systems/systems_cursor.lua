@@ -1,5 +1,5 @@
 ---@class CursorState
----@field spriteId string|nil
+---@field spriteId string
 ---@field screenX number
 ---@field screenY number
 ---@field worldX number
@@ -10,23 +10,12 @@ local SystemsCursor = {}
 
 ---@type CursorState
 local state         = {
-    spriteId = nil,
+    spriteId = "cursor_cross",
     screenX = 0,
     screenY = 0,
     worldX = 0,
     worldY = 0,
 }
-
----@param spriteId string|nil
-function SystemsCursor.init(spriteId)
-    state = {
-        spriteId = spriteId,
-        screenX = 0,
-        screenY = 0,
-        worldX = 0,
-        worldY = 0,
-    }
-end
 
 ---@param screenX number
 ---@param screenY number

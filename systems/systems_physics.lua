@@ -24,6 +24,15 @@ end
 
 -- ── Systems ───────────────────────────────────────────────────────────────────
 
+---Saves positions before physics modifies them (used for interpolated rendering).
+---@param w World
+function SystemsPhysics.snapshotPositions(w)
+    for _, id in pairs(w.position) do
+        id.px = id.x
+        id.py = id.y
+    end
+end
+
 ---Copies frame inputs into each player's input component and prepends a
 --- raw snapshot to their inputHistory ring buffer.
 --- History index 1 is always the most recent frame.
