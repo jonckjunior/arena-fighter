@@ -22,9 +22,10 @@ end
 ---@param w World
 function SystemsPresentPose.updateWalkAnimation(w)
     for _, id in ipairs(World.query(w, C.Name.input, C.Name.velocity, C.Name.animation, C.Name.grounded)) do
-        local moving              = math.abs(w.velocity[id].dx) > PLAYER_CONSTANTS.ANIMATION_THRESHOLD_SPEED
-        local onFloor             = w.grounded[id].value
-        w.animation[id].isPlaying = moving and onFloor
+        local moving                  = math.abs(w.velocity[id].dx) > PLAYER_CONSTANTS.ANIMATION_THRESHOLD_SPEED
+        local onFloor                 = w.grounded[id].value
+        w.animation[id].isPlaying     = moving and onFloor
+        w.animation[id].isPlayerOnAir = onFloor == false
     end
 end
 
@@ -52,7 +53,10 @@ end
 function SystemsPresentPose.animation(w, dt)
     for _, id in ipairs(World.query(w, C.Name.animation)) do
         local anim = w.animation[id]
-        if anim.isPlaying then
+        if anim.isPlayerOnAir then
+            anim.current = 2
+            -- do nothing for now
+        elseif anim.isPlaying then
             anim.timer = anim.timer + dt
             if anim.timer >= anim.duration then
                 anim.timer   = anim.timer - anim.duration
