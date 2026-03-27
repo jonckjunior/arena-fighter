@@ -55,7 +55,6 @@ function SystemsPresentPose.animation(w, dt)
         local anim = w.animation[id]
         if anim.isPlayerOnAir then
             anim.current = 2
-            -- do nothing for now
         elseif anim.isPlaying then
             anim.timer = anim.timer + dt
             if anim.timer >= anim.duration then
